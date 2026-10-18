@@ -2702,6 +2702,67 @@ const TIP_GAP: f64 = 6.0;
 /// 避免先按 186 开、再被前端量到的高度缩一下的可见跳动。
 static TIP_LAST_H: AtomicU32 = AtomicU32::new(186);
 
+/// 提示窗「光标离开就收起」看门狗的世代号。
+///
+/// 网页层只靠 `mouseleave` 收提示窗，但窗口被程序改尺寸、或指针快速移出这个很小的
+/// 卡片窗口时，WebKit 有可能根本不派发 mouseleave，提示窗就一直挂在屏幕上。
+/// 这里改用系统光标的真实坐标兜底：与网页事件是否送达无关。每次显示 / 隐藏都自增
+/// 世代号，让上一轮看门狗作废，避免它误收一个已经重新显示的提示窗。
+static TIP_WATCH: AtomicU64 = AtomicU64::new(0);
+
+/// 判定光标是否仍在悬浮卡（主窗口）内：Some(true) 在内、Some(false) 已离开、
+/// None 表示窗口或光标信息取不到（调用方据此停掉看门狗，避免空转）。
+fn tip_cursor_inside(app: &tauri::AppHandle) -> Option<bool> {
+    let main = app.get_webview_window("main")?;
+    let tip = app.get_webview_window("tip")?;
+    // 提示窗已经不可见：没有继续看的必要
+    if !tip.is_visible().ok()? {
+        return None;
+    }
+    let cursor = app.cursor_position().ok()?;
+    let pos = main.outer_position().ok()?;
+    let size = main.outer_size().ok()?;
+    // 留 4px 余量，避免指针贴着边缘时来回抖
+    let m = 4.0;
+    let inside = cursor.x >= pos.x as f64 - m
+        && cursor.x <= (pos.x + size.width as i32) as f64 + m
+        && cursor.y >= pos.y as f64 - m
+        && cursor.y <= (pos.y + size.height as i32) as f64 + m;
+    Some(inside)
+}
+
+/// 挂一个看门狗：每 200ms 在主线程上核对一次光标是否还在卡片窗口内，离开即收起提示窗。
+/// 窗口 / 光标查询都要在主线程做，所以用 run_on_main_thread 派发。
+fn spawn_tip_watchdog(app: tauri::AppHandle, gen: u64) {
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        if TIP_WATCH.load(Ordering::SeqCst) != gen {
+            return;
+        }
+        let app_main = app.clone();
+        let app_check = app.clone();
+        let _ = app_main.run_on_main_thread(move || {
+            if TIP_WATCH.load(Ordering::SeqCst) != gen {
+                return;
+            }
+            match tip_cursor_inside(&app_check) {
+                Some(true) => {}
+                Some(false) => {
+                    // 光标已离开卡片窗口：作废本轮看门狗并收起提示窗
+                    TIP_WATCH.fetch_add(1, Ordering::SeqCst);
+                    if let Some(tip) = app_check.get_webview_window("tip") {
+                        let _ = tip.hide();
+                    }
+                }
+                None => {
+                    // 信息取不到（窗口已关 / 已隐藏）：停掉看门狗，别空转
+                    TIP_WATCH.fetch_add(1, Ordering::SeqCst);
+                }
+            }
+        });
+    });
+}
+
 /// 把提示窗摆到卡片正上方（上方放不下就挪到下方）。
 /// 宽度直接取悬浮卡窗口的宽度——卡片本来就是按内容自适应的，
 /// 提示窗跟着它走，两者左右对齐、宽窄一致。
@@ -2751,7 +2812,11 @@ fn show_float_tip(app: tauri::AppHandle, payload: serde_json::Value) -> Result<(
     place_tip(&main, &tip, tip_h)?;
     // 先把内容推过去再显示，避免中间闪一帧空白
     let _ = tip.emit("tip-data", payload);
-    tip.show().map_err(|e| e.to_string())
+    tip.show().map_err(|e| e.to_string())?;
+    // 显示成功后挂上「光标离开卡片就自动收起」看门狗（兜底网页层可能丢失的 mouseleave）
+    let gen = TIP_WATCH.fetch_add(1, Ordering::SeqCst) + 1;
+    spawn_tip_watchdog(app.clone(), gen);
+    Ok(())
 }
 
 /// 提示窗按内容自适应高度：提示窗前端量出内容真实高度后回调（逻辑像素）。
@@ -2772,6 +2837,8 @@ fn set_tip_height(app: tauri::AppHandle, height: f64) -> Result<(), String> {
 /// 隐藏悬停提示窗（鼠标离开卡片、开始拖拽、退出悬浮态时调用）
 #[tauri::command]
 fn hide_float_tip(app: tauri::AppHandle) -> Result<(), String> {
+    // 作废当前看门狗，避免它下一轮又去收一个刚重新显示的提示窗
+    TIP_WATCH.fetch_add(1, Ordering::SeqCst);
     if let Some(tip) = app.get_webview_window("tip") {
         tip.hide().map_err(|e| e.to_string())?;
     }

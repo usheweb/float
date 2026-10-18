@@ -1228,6 +1228,10 @@ async function showTip() {
   tipShown = true;
   try {
     await invoke("show_float_tip", { payload });
+    // 两个 invoke 之间不保证先后：若这次「显示」落地前 mouseleave 已把 tipShown 翻成
+    // false（hide 先被 Rust 执行），窗口就会在 hide 之后又被 show 出来、一直挂着。
+    // 这里补一次隐藏，把顺序纠回来。
+    if (!tipShown) await invoke("hide_float_tip");
   } catch (_) {
     tipShown = false;
   }
