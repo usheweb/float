@@ -277,6 +277,34 @@ fn trae_storage_path() -> PathBuf {
         .unwrap_or_else(|| candidates.into_iter().next().unwrap_or_default())
 }
 
+/// Trae CN 应用数据根目录：登录态在 `<app>/User/globalStorage/storage.json`，上溯三级即得
+fn trae_app_dir() -> Option<PathBuf> {
+    trae_storage_path()
+        .parent()
+        .and_then(|p| p.parent())
+        .and_then(|p| p.parent())
+        .map(|p| p.to_path_buf())
+}
+
+/// 客户端设备 ID：从 `<app>/ahanet/tt_net_config.config` 里取 `device_id&#*` 后面的连续数字。
+/// 签到接口要带 x-device-id，取不到就返回空串（通常仍能签到）。
+fn trae_device_id() -> String {
+    let Some(dir) = trae_app_dir() else {
+        return String::new();
+    };
+    let Ok(text) = std::fs::read_to_string(dir.join("ahanet").join("tt_net_config.config")) else {
+        return String::new();
+    };
+    const KEY: &str = "device_id&#*";
+    let Some(pos) = text.find(KEY) else {
+        return String::new();
+    };
+    text[pos + KEY.len()..]
+        .chars()
+        .take_while(|c| c.is_ascii_digit())
+        .collect()
+}
+
 /// 读取并解析 Trae CN 登录态文件
 fn trae_read_storage() -> Result<serde_json::Value, String> {
     let path = trae_storage_path();
@@ -373,6 +401,10 @@ struct TraeProbe {
     identity: String,
     expired_at: String,
     token: Option<String>,
+    /// 登录态里的用户区域（如 CN），签到接口要按它带 X-User-Region
+    region: String,
+    /// 客户端设备 ID，签到接口要带 x-device-id
+    device_id: String,
     unavailable: Option<String>,
 }
 
@@ -384,6 +416,8 @@ fn trae_probe() -> TraeProbe {
         identity: String::new(),
         expired_at: String::new(),
         token: None,
+        region: String::new(),
+        device_id: trae_device_id(),
         unavailable: None,
     };
 
@@ -407,6 +441,12 @@ fn trae_probe() -> TraeProbe {
     let token = auth.get("token").and_then(|v| v.as_str()).unwrap_or("").to_string();
     let expired = auth.get("expiredAt").and_then(|v| v.as_str()).unwrap_or("").to_string();
     probe.expired_at = expired.clone();
+    probe.region = auth
+        .get("userRegion")
+        .and_then(|v| v.get("region"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
 
     if token.is_empty() {
         probe.unavailable =
@@ -449,14 +489,140 @@ async fn fetch_trae_credits(token: &str) -> Result<serde_json::Value, String> {
     serde_json::from_str(&text).map_err(|e| format!("解析响应失败: {}", e))
 }
 
-/// 组装 trae 给前端的 data：原始响应 + 登录态元信息（套餐身份 / 过期时间 / 文件路径）
-fn trae_payload(raw: serde_json::Value, probe: &TraeProbe) -> serde_json::Value {
+/// 组装 trae 给前端的 data：原始响应 + 登录态元信息（套餐身份 / 过期时间 / 文件路径）+ 签到结果
+fn trae_payload(
+    raw: serde_json::Value,
+    probe: &TraeProbe,
+    checkin: Option<serde_json::Value>,
+) -> serde_json::Value {
     serde_json::json!({
         "raw": raw,
         "identity": probe.identity,
         "expiredAt": probe.expired_at,
         "file": probe.storage_path,
+        "checkin": checkin,
     })
+}
+
+/// 签到接口返回兼容两种格式：`{checked_in:…}` 与 `{code:0, data:{checked_in:…}}`
+fn unwrap_checkin(v: &serde_json::Value) -> serde_json::Value {
+    if v.get("checked_in").is_none() {
+        if let Some(data) = v.get("data") {
+            if data.get("checked_in").is_some() {
+                return data.clone();
+            }
+        }
+    }
+    v.clone()
+}
+
+/// 签到接口的单次 POST（body 固定 `{"req_source":1}`，与积分接口的 2 不同）
+async fn trae_checkin_post(
+    client: &reqwest::Client,
+    url: &str,
+    token: &str,
+    region: &str,
+    device_id: &str,
+) -> Result<serde_json::Value, String> {
+    let mut req = client
+        .post(url)
+        .header("Content-Type", "application/json")
+        .header("Authorization", format!("Cloud-IDE-JWT {}", token));
+    if !device_id.is_empty() {
+        req = req.header("x-device-id", device_id);
+    }
+    if !region.is_empty() {
+        req = req.header("X-User-Region", region);
+    }
+
+    let resp = req
+        .json(&serde_json::json!({ "req_source": 1 }))
+        .send()
+        .await
+        .map_err(|e| format!("请求失败: {}", e))?;
+    let status = resp.status();
+    let text = resp
+        .text()
+        .await
+        .map_err(|e| format!("读取响应失败: {}", e))?;
+    if !status.is_success() {
+        return Err(format!("接口返回 HTTP {}: {}", status.as_u16(), text));
+    }
+    serde_json::from_str(&text).map_err(|e| format!("解析响应失败: {}", e))
+}
+
+/// 自动签到：先查状态，今天没签过且签到开放时才领取；已签到 / 未开放就不动，避免重复领取。
+/// 返回 `{ checked_in, claimed, enable, credits, message }`，前端据此展示。
+async fn trae_checkin(
+    token: &str,
+    region: &str,
+    device_id: &str,
+) -> Result<serde_json::Value, String> {
+    const BASE: &str = "https://api.trae.cn/trae/api/v2/ug/checkin_credits";
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(20))
+        .build()
+        .map_err(|e| format!("创建 HTTP 客户端失败: {}", e))?;
+
+    let status = unwrap_checkin(
+        &trae_checkin_post(&client, &format!("{}/status", BASE), token, region, device_id).await?,
+    );
+    let checked = status
+        .get("checked_in")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let enable = status
+        .get("enable")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+
+    if checked || !enable {
+        return Ok(serde_json::json!({
+            "checked_in": checked,
+            "claimed": false,
+            "enable": enable,
+            "credits": status.get("credits").cloned().unwrap_or(serde_json::Value::Null),
+            "message": status.get("message").cloned().unwrap_or(serde_json::Value::Null),
+        }));
+    }
+
+    let claim = trae_checkin_post(&client, &format!("{}/claim", BASE), token, region, device_id).await?;
+    let ok = claim
+        .get("code")
+        .and_then(|v| v.as_i64())
+        .map(|c| c == 0)
+        .unwrap_or(false);
+
+    // 领取成功后再查一次状态，拿到最新积分；查失败不影响「已签到」的结论
+    let after = if ok {
+        trae_checkin_post(&client, &format!("{}/status", BASE), token, region, device_id)
+            .await
+            .ok()
+            .map(|v| unwrap_checkin(&v))
+    } else {
+        None
+    };
+
+    Ok(serde_json::json!({
+        "checked_in": after
+            .as_ref()
+            .and_then(|v| v.get("checked_in"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(ok),
+        "claimed": ok,
+        "enable": enable,
+        "credits": after
+            .as_ref()
+            .and_then(|v| v.get("credits"))
+            .cloned()
+            .unwrap_or(serde_json::Value::Null),
+        "message": if ok {
+            serde_json::Value::Null
+        } else {
+            claim.get("message").cloned().unwrap_or(serde_json::Value::Null)
+        },
+    }))
 }
 
 /* ---------- 凭证存取 ---------- */
@@ -2141,7 +2307,11 @@ async fn get_source_data(
             (None, None) => return Err("Trae CN 登录态不可用".to_string()),
         };
         let raw = fetch_trae_credits(&token).await?;
-        trae_payload(raw, &probe)
+        // 顺手做一次自动签到：今天没签过就领，签过则跳过（失败不影响积分展示）
+        let checkin = trae_checkin(&token, &probe.region, &probe.device_id)
+            .await
+            .ok();
+        trae_payload(raw, &probe, checkin)
     } else {
         let (creds, _) = effective_creds(&app, &acc_id, def).ok_or_else(|| {
             format!("尚未配置「{}」的凭证，请点击右上角「设置」填写。", def.name)
@@ -2176,7 +2346,7 @@ async fn test_source(
             (None, None) => return Err("Trae CN 登录态不可用".to_string()),
         };
         let raw = fetch_trae_credits(&token).await?;
-        return Ok(serde_json::json!({ "source": def.id, "data": trae_payload(raw, &probe) }));
+        return Ok(serde_json::json!({ "source": def.id, "data": trae_payload(raw, &probe, None) }));
     }
 
     let mut creds: HashMap<String, String> = HashMap::new();

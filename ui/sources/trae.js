@@ -46,6 +46,16 @@
 
   const DAY_MS = 24 * 3600 * 1000;
 
+  /// 自动签到结果文案（后端 data.checkin = { checked_in, claimed, enable, ... }）
+  /// 返回空串表示这次没拿到签到结果，界面不显示该行
+  function checkinText(checkin) {
+    if (!checkin) return "";
+    if (checkin.claimed) return "已自动签到";
+    if (checkin.checked_in) return "今日已签到";
+    if (checkin.enable === false) return "签到未开放";
+    return "签到失败";
+  }
+
   /// 时间戳（秒）-> MM-DD
   function fmtMd(sec) {
     const dt = new Date(Number(sec) * 1000);
@@ -106,6 +116,7 @@
       const expiredAt = data?.expiredAt || "";
       const agg = aggregate(raw);
       const badge = identity || "Trae";
+      const checkin = checkinText(data?.checkin);
 
       if (!agg.hasPacks) {
         return {
@@ -125,7 +136,7 @@
               <div class="card-info">
                 <div class="card-title">Trae Code 积分</div>
                 <div class="card-sub">剩余 <span class="remain">∞</span> 积分 · 不限量套餐</div>
-                <div class="card-reset">${identity ? `套餐 ${identity}` : "重置 —"}</div>
+                <div class="card-reset">${identity ? `套餐 ${identity}` : "重置 —"}${checkin ? ` · ${checkin}` : ""}</div>
               </div>
             </div>`,
           float: {
@@ -139,7 +150,10 @@
             // 悬停提示窗：不限量套餐没有「消耗完」的概念，不给预计天数（remainNum 为 null）
             title: "TRAE 积分余额",
             remainNum: null,
-            tip: [["套餐", identity ? `${identity} · 不限量` : "不限量套餐"]],
+            tip: [
+              ["套餐", identity ? `${identity} · 不限量` : "不限量套餐"],
+              ...(checkin ? [["签到", checkin]] : []),
+            ],
           },
         };
       }
@@ -178,7 +192,7 @@
             <div class="card-info">
               <div class="card-title">Trae Code 积分</div>
               <div class="card-sub">剩余 <span class="remain">${remainTxt}</span> 积分 · 已用 ${fmtNum(agg.used)} / 共 ${fmtNum(agg.total)}</div>
-              <div class="card-reset">重置 —${expiredAt ? ` · 登录态 ${fmtDate(expiredAt)} 到期` : ""}</div>
+              <div class="card-reset">重置 —${expiredAt ? ` · 登录态 ${fmtDate(expiredAt)} 到期` : ""}${checkin ? ` · ${checkin}` : ""}</div>
             </div>
           </div>`,
         float: {
@@ -197,6 +211,7 @@
             ["套餐", identity || "—"],
             ["已用", `${fmtNum(agg.used)} / ${fmtNum(agg.total)}`],
             ["预计剩余", daysText, "accent"],
+            ...(checkin ? [["签到", checkin]] : []),
           ],
         },
       };
