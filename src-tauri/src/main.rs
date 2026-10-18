@@ -630,8 +630,11 @@ async fn trae_checkin(
 /// 所以直接用本地日期当判据即可。
 const CHECKIN_CACHE_KEY: &str = "traeCheckin";
 /// 领取没成功（接口抽风 / 返回非成功码）时隔多久再试一次。
-/// 不跟着刷新间隔重试，免得在签到接口上打出高频请求。
-const CHECKIN_RETRY_SECS: i64 = 3600;
+/// 不跟着刷新间隔重试，免得在签到接口上打出高频请求：
+/// 服务端一直说没签、而 claim 又一直失败时，若按 60 秒的刷新周期重试，
+/// 通宵开着就是几百上千次请求，最容易踩风控。这里退避 30 分钟一次，
+/// 当天仍有机会补上签到。
+const CHECKIN_RETRY_SECS: i64 = 1800;
 
 /// 命中今日缓存就直接复用结论，不再打 /status：已签到（或签到未开放）当天不再查，
 /// 领取没成功则隔 CHECKIN_RETRY_SECS 再试一次。
@@ -649,7 +652,7 @@ fn cached_checkin(app: &tauri::AppHandle) -> Option<serde_json::Value> {
     if settled {
         return Some(payload.clone());
     }
-    // 没签到成功（比如领取接口失败）：一小时后再试，别每次刷新都打一遍
+    // 没签到成功（比如领取接口失败）：半小时后再试，别每次刷新都打一遍
     let ts = cache.get("ts").and_then(|v| v.as_i64()).unwrap_or(0);
     if chrono::Local::now().timestamp() - ts < CHECKIN_RETRY_SECS {
         return Some(payload.clone());
