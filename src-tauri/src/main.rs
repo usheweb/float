@@ -625,6 +625,49 @@ async fn trae_checkin(
     }))
 }
 
+/// 今日签到结论的本地缓存键，存在 settings.json 里（仅本机、不含任何密钥）。
+/// Trae 的签到「今天」是按用户所在时区的零点翻页的（本机时区即账号时区），
+/// 所以直接用本地日期当判据即可。
+const CHECKIN_CACHE_KEY: &str = "traeCheckin";
+/// 领取没成功（接口抽风 / 返回非成功码）时隔多久再试一次。
+/// 不跟着刷新间隔重试，免得在签到接口上打出高频请求。
+const CHECKIN_RETRY_SECS: i64 = 3600;
+
+/// 命中今日缓存就直接复用结论，不再打 /status：已签到（或签到未开放）当天不再查，
+/// 领取没成功则隔 CHECKIN_RETRY_SECS 再试一次。
+fn cached_checkin(app: &tauri::AppHandle) -> Option<serde_json::Value> {
+    let settings = read_settings(app);
+    let cache = settings.get(CHECKIN_CACHE_KEY)?;
+    let payload = cache.get("payload")?;
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    if cache.get("date").and_then(|v| v.as_str()) != Some(today.as_str()) {
+        return None;
+    }
+    // 已签到、或签到没开放：结论已经确定，当天剩下的时间都不用再问服务端
+    let settled = payload.get("checked_in").and_then(|v| v.as_bool()).unwrap_or(false)
+        || !payload.get("enable").and_then(|v| v.as_bool()).unwrap_or(true);
+    if settled {
+        return Some(payload.clone());
+    }
+    // 没签到成功（比如领取接口失败）：一小时后再试，别每次刷新都打一遍
+    let ts = cache.get("ts").and_then(|v| v.as_i64()).unwrap_or(0);
+    if chrono::Local::now().timestamp() - ts < CHECKIN_RETRY_SECS {
+        return Some(payload.clone());
+    }
+    None
+}
+
+/// 把今天的签到结论连同日期落盘，下次启动 / 下一次刷新直接复用
+fn save_checkin_cache(app: &tauri::AppHandle, payload: &serde_json::Value) {
+    let mut settings = read_settings(app);
+    settings[CHECKIN_CACHE_KEY] = serde_json::json!({
+        "date": chrono::Local::now().format("%Y-%m-%d").to_string(),
+        "ts": chrono::Local::now().timestamp(),
+        "payload": payload,
+    });
+    let _ = write_settings(app, &settings);
+}
+
 /* ---------- 凭证存取 ---------- */
 
 /// 凭证文件（v2）：按数据源 id 索引，`active` 记录当前展示的场景
@@ -2307,10 +2350,21 @@ async fn get_source_data(
             (None, None) => return Err("Trae CN 登录态不可用".to_string()),
         };
         let raw = fetch_trae_credits(&token).await?;
-        // 顺手做一次自动签到：今天没签过就领，签过则跳过（失败不影响积分展示）
-        let checkin = trae_checkin(&token, &probe.region, &probe.device_id)
-            .await
-            .ok();
+        // 顺手做一次自动签到：今天没签过就领，签过则跳过（失败不影响积分展示）。
+        // 结论按「本地日期」缓存到本机：今天已经确认过就直接复用，不再打签到接口，
+        // 免得每次刷新都去问一遍 /status。
+        let checkin = match cached_checkin(&app) {
+            Some(cached) => Some(cached),
+            None => {
+                let fresh = trae_checkin(&token, &probe.region, &probe.device_id)
+                    .await
+                    .ok();
+                if let Some(v) = fresh.as_ref() {
+                    save_checkin_cache(&app, v);
+                }
+                fresh
+            }
+        };
         trae_payload(raw, &probe, checkin)
     } else {
         let (creds, _) = effective_creds(&app, &acc_id, def).ok_or_else(|| {
