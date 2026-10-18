@@ -1254,9 +1254,27 @@ el.floatCard.addEventListener("mouseenter", () => {
   clearTimeout(tipTimer);
   tipTimer = setTimeout(showTip, 150);
 });
-el.floatCard.addEventListener("mouseleave", () => {
+/// 这发 mouseleave 是不是「假的」：坐标还在悬浮卡范围内，就说明指针并没有真的离开。
+/// WebKit 在我们自己改写卡片布局（量宽度时会临时把卡片设成 absolute + max-content）
+/// 或程序改了窗口尺寸之后会重算命中测试，可能凭空补一发 mouseleave 却不补 mouseenter，
+/// 原来的实现据此收提示窗，就成了「刷新数据时提示窗闪一下、然后没了」。
+/// 真离开的 mouseleave 坐标必然落在卡片外，照旧收起。
+function isSpuriousLeave(e) {
+  if (typeof e.clientX !== "number" || typeof e.clientY !== "number") return false;
+  const r = el.floatCard.getBoundingClientRect();
+  const m = 2;
+  return (
+    e.clientX >= r.left - m &&
+    e.clientX <= r.right + m &&
+    e.clientY >= r.top - m &&
+    e.clientY <= r.bottom + m
+  );
+}
+
+el.floatCard.addEventListener("mouseleave", (e) => {
   clearTimeout(tipTimer);
   tipHold = false;
+  if (isSpuriousLeave(e)) return;
   hideTip();
 });
 el.floatCard.addEventListener("pointerup", () => {

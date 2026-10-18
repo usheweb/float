@@ -4,7 +4,7 @@
 # 产品对外显示名（.app 名、CFBundleName/DisplayName、菜单栏文案）仍由
 # tauri.conf.json 的 productName（中文）决定，与这里无关。
 name = "tangsanlang-float"
-version = "0.3.3"
+version = "0.3.4"
 description = "把各 AI 服务商的余额 / 用量聚合在一个常驻悬浮窗里"
 authors = ["ushe-ai"]
 edition = "2021"

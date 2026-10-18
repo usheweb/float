@@ -2882,13 +2882,8 @@ static TIP_WATCH: AtomicU64 = AtomicU64::new(0);
 
 /// 判定光标是否仍在悬浮卡（主窗口）内：Some(true) 在内、Some(false) 已离开、
 /// None 表示窗口或光标信息取不到（调用方据此停掉看门狗，避免空转）。
-fn tip_cursor_inside(app: &tauri::AppHandle) -> Option<bool> {
+fn cursor_inside_main(app: &tauri::AppHandle) -> Option<bool> {
     let main = app.get_webview_window("main")?;
-    let tip = app.get_webview_window("tip")?;
-    // 提示窗已经不可见：没有继续看的必要
-    if !tip.is_visible().ok()? {
-        return None;
-    }
     let cursor = app.cursor_position().ok()?;
     let pos = main.outer_position().ok()?;
     let size = main.outer_size().ok()?;
@@ -2899,6 +2894,15 @@ fn tip_cursor_inside(app: &tauri::AppHandle) -> Option<bool> {
         && cursor.y >= pos.y as f64 - m
         && cursor.y <= (pos.y + size.height as i32) as f64 + m;
     Some(inside)
+}
+
+/// 看门狗用：提示窗已经不可见就没有继续看的必要，直接返回 None。
+fn tip_cursor_inside(app: &tauri::AppHandle) -> Option<bool> {
+    let tip = app.get_webview_window("tip")?;
+    if !tip.is_visible().ok()? {
+        return None;
+    }
+    cursor_inside_main(app)
 }
 
 /// 挂一个看门狗：每 200ms 在主线程上核对一次光标是否还在卡片窗口内，离开即收起提示窗。
@@ -2960,8 +2964,18 @@ fn place_tip(
     }
     y = y.max(top);
 
-    let _ = tip.set_size(tauri::PhysicalSize::new(size.width, height));
-    let _ = tip.set_position(tauri::PhysicalPosition::new(pos.x, y));
+    // 尺寸 / 位置没有变化就不动窗口：对已显示的透明窗口重复 set_size + set_position
+    // 会让它在 macOS 上闪一下，而取数刷新时这两者常常是不变的。
+    let want = tauri::PhysicalSize::new(size.width, height);
+    let resize = tip.outer_size().map(|s| s != want).unwrap_or(true);
+    if resize {
+        let _ = tip.set_size(want);
+    }
+    let want_pos = tauri::PhysicalPosition::new(pos.x, y);
+    let mov = tip.outer_position().map(|p| p != want_pos).unwrap_or(true);
+    if mov {
+        let _ = tip.set_position(want_pos);
+    }
     Ok(())
 }
 
@@ -2975,6 +2989,24 @@ fn place_tip(
 fn show_float_tip(app: tauri::AppHandle, payload: serde_json::Value) -> Result<(), String> {
     let main = app.get_webview_window("main").ok_or("找不到主窗口")?;
     let tip = app.get_webview_window("tip").ok_or("找不到提示窗口")?;
+
+    // 提示窗已经显示着：这次只是取数完成后把里面的数字刷新一下（main.js 的 refresh
+    // 结束时会再调一次）。此时绝不能再 place_tip + show：对已可见的窗口重新 set_size
+    // 并再 order front 一次，在 macOS 的透明窗口上会明显闪一下，而且会多挂一个看门狗
+    // 把正在跑的那个顶掉。只把新内容推过去，窗口尺寸变化交给 tooltip.js 量的
+    // set_tip_height、宽度变化交给 set_float_width，它们各自会重摆。
+    if tip.is_visible().unwrap_or(false) {
+        let _ = tip.emit("tip-data", payload);
+        return Ok(());
+    }
+
+    // 窗口已经不可见，但前端可能仍以为它开着：网页层丢过一次 mouseleave，看门狗按真实
+    // 光标位置把窗口收掉了，而 main.js 的 tipShown 还停在 true。于是它每次取数刷新都会
+    // 再调一次 show——若此刻光标已经不在卡片上，就会在离卡片很远的地方「闪一下又没了」。
+    // 光标确实不在卡片内时直接不显示；位置取不到则不拦，保持原来的显示行为。
+    if cursor_inside_main(&app) == Some(false) {
+        return Ok(());
+    }
 
     let scale = main.scale_factor().map_err(|e| e.to_string())?;
     let tip_h = (TIP_LAST_H.load(Ordering::Relaxed) as f64 * scale).round() as u32;
