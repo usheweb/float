@@ -2697,7 +2697,7 @@ fn animate_rect(window: &tauri::WebviewWindow, to_pos: (i32, i32), to_size: (u32
     let _ = window.set_position(tauri::PhysicalPosition::new(to_pos.0, to_pos.1));
 }
 
-/// 置为「定住」形态：小尺寸下限、不可缩放、无边框、置顶、无阴影。
+/// 置为「定住」形态：小尺寸下限、不可缩放、无边框、置顶、无阴影、不进任务栏。
 /// 启动恢复与手动点「定住」共用，启动时不走动画。
 fn apply_pinned_style(window: &tauri::WebviewWindow) -> Result<(), String> {
     window
@@ -2708,6 +2708,11 @@ fn apply_pinned_style(window: &tauri::WebviewWindow) -> Result<(), String> {
     window.set_decorations(false).map_err(|e| e.to_string())?;
     // 关闭 macOS 原生窗口阴影：透明窗口下它会在悬浮卡片四周的透明区域里投出一圈灰色阴影
     window.set_shadow(false).map_err(|e| e.to_string())?;
+    // 悬浮窗已经挂在桌面上了，任务栏再留一个入口是多余的。
+    // tao 在 Windows 上是调 ITaskbarList 的 DeleteTab/AddTab，只摘任务栏按钮，
+    // 不会隐藏或重建窗口，所以不影响随后的收缩动画。
+    #[cfg(target_os = "windows")]
+    window.set_skip_taskbar(true).map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -2756,6 +2761,9 @@ async fn set_pinned(
         }
         #[cfg(target_os = "windows")]
         float_guard::set_active(false);
+        // 回到普通窗口形态：把任务栏入口还回来（定住期间它是桌面上的悬浮窗，不需要任务栏）
+        #[cfg(target_os = "windows")]
+        window.set_skip_taskbar(false).map_err(|e| e.to_string())?;
         window.set_always_on_top(false).map_err(|e| e.to_string())?;
         window.set_shadow(true).map_err(|e| e.to_string())?;
 
