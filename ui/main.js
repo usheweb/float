@@ -63,6 +63,7 @@ const el = {
   detailCancel: document.getElementById("detail-cancel"),
   detailTest: document.getElementById("detail-test"),
   detailSave: document.getElementById("detail-save"),
+  appVersion: document.getElementById("app-version"),
 };
 
 let loading = false;
@@ -1317,6 +1318,8 @@ async function bootstrap() {
     pinnedAtStart = !!st.pinned;
     document.body.classList.toggle("pinned", pinnedAtStart);
     if (pinnedAtStart) updateFloat();
+    // 设置面板底部的版本号：Rust 侧带回编译进二进制的包版本
+    if (st.version) el.appVersion.textContent = `唐三浪悬浮窗 v${st.version}`;
   } catch (_) {
     /* 拿不到状态就按主界面显示 */
   }

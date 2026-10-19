@@ -2906,7 +2906,12 @@ async fn show_card_menu(window: tauri::WebviewWindow) -> Result<(), String> {
 /// 前端据此在窗口还隐藏时就把布局切成悬浮卡片，再调 show_window，避免主界面闪一下。
 #[tauri::command]
 fn startup_state(app: tauri::AppHandle) -> serde_json::Value {
-    serde_json::json!({ "pinned": saved_pinned(&app) })
+    // version 取编译进二进制的包版本（与 tauri.conf.json / 安装包的版本号同步升），
+    // 前端把它显示在设置面板底部，方便确认当前跑的是哪个构建
+    serde_json::json!({
+        "pinned": saved_pinned(&app),
+        "version": env!("CARGO_PKG_VERSION"),
+    })
 }
 
 /// 显示主窗口。窗口以 visible:false 创建，等前端把布局（主界面 / 悬浮卡片）切好再显示。
