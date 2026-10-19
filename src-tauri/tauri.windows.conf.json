@@ -11,7 +11,24 @@
         "minHeight": 240,
         "resizable": true,
         "decorations": true,
-        "transparent": false
+        "transparent": true,
+        "noRedirectionBitmap": true
+      },
+      {
+        "label": "tip",
+        "url": "tooltip.html",
+        "title": "提示",
+        "width": 240,
+        "height": 186,
+        "resizable": false,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focus": false,
+        "shadow": false,
+        "noRedirectionBitmap": true,
+        "visible": false
       }
     ]
   },

@@ -483,18 +483,10 @@ body.pinned {
   background: transparent;
 }
 
-/* Windows 不支持窗口透明，WebView 默认白底会从圆角处透出四个白角。
-   直接在 Windows 上铺满深色背景并将悬浮卡改为直角，避免白角。 */
-.is-windows body.pinned,
-body.is-windows.pinned {
-  background: #0b1022;
-}
-
-.is-windows body.pinned .float-card,
-body.is-windows.pinned .float-card {
-  border-radius: 0;
-  border: none;
-}
+/* 早先 Windows 上窗口不透明，WebView 的白底会从四个圆角透出「白角」，
+   所以铺深色底 + 把悬浮卡改直角遮掉。现在 tauri.windows.conf.json 里 Windows 的
+   main 窗口也开了 transparent（并加 noRedirectionBitmap 防白闪），圆角与 macOS 一致，
+   这条兜底就撤掉了。若实机发现仍有白角，说明该环境的 WebView2 透明没生效，再恢复。 */
 
 body.pinned .bg-glow,
 body.pinned .topbar,
