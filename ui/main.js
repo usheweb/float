@@ -59,6 +59,8 @@ const el = {
   detailLabel: document.getElementById("detail-label"),
   detailFields: document.getElementById("detail-fields"),
   detailInterval: document.getElementById("detail-interval"),
+  detailAutoInterval: document.getElementById("detail-auto-interval"),
+  detailAutoIntervalInput: document.getElementById("detail-auto-interval-input"),
   detailBack: document.getElementById("detail-back"),
   detailCancel: document.getElementById("detail-cancel"),
   detailTest: document.getElementById("detail-test"),
@@ -694,6 +696,8 @@ function renderDetailHeader() {
   const def = currentDef();
   if (!def) return;
   el.detailInfo.innerHTML = "";
+  // 自动凭证源没有账号表单，刷新间隔单独摆一块；普通平台的间隔在账号表单里
+  el.detailAutoInterval.classList.toggle("hidden", def.autoCreds !== true);
 
   if (def.autoCreds) {
     const info = def.autoInfo || {};
@@ -716,6 +720,11 @@ function renderDetailHeader() {
       wrap.append(lb, val);
       el.detailInfo.appendChild(wrap);
     }
+    // 回填该源当前生效的刷新间隔（后端存在源 id 这个固定账号上）
+    const acc = (def.accounts || [])[0];
+    el.detailAutoIntervalInput.value = String(acc?.interval || defaultInterval);
+    el.detailAutoIntervalInput.min = String(minInterval);
+    el.detailAutoIntervalInput.max = String(maxInterval);
   } else {
     el.detailDesc.textContent = `${def.subtitle} · 同一平台可保存多个账号，凭证只存本机。`;
   }
@@ -859,8 +868,13 @@ function syncFoot() {
   // 自动凭证源任何时候都能「重新检测」
   el.detailTest.classList.toggle("hidden", isAuto ? false : !editable);
   el.detailTest.textContent = isAuto ? "重新检测" : "测试连接";
-  el.detailSave.classList.toggle("hidden", !editable);
-  el.detailSave.textContent = editingAccountId ? "保存修改" : "保存并切换";
+  // 自动凭证源没有凭证，但详情页能改刷新间隔，所以也给它一个保存按钮
+  el.detailSave.classList.toggle("hidden", isAuto ? false : !editable);
+  el.detailSave.textContent = isAuto
+    ? "保存设置"
+    : editingAccountId
+      ? "保存修改"
+      : "保存并切换";
 }
 
 /// 收起账号表单，回到「账号列表」状态
@@ -961,8 +975,8 @@ function openAccountForm(accountId) {
 }
 
 /// 读表单里的刷新间隔；空值 / 非法值回落到默认间隔（越界由后端夹紧）
-function readIntervalValue() {
-  const raw = Number(el.detailInterval.value);
+function readIntervalValue(input = el.detailInterval) {
+  const raw = Number(input.value);
   if (!Number.isFinite(raw) || raw <= 0) return defaultInterval;
   return Math.round(raw);
 }
@@ -978,6 +992,8 @@ function readDetailValues() {
 async function saveDetail() {
   const def = currentDef();
   if (!def) return;
+  // 自动凭证源（Trae）没有凭证可存：这里只落「自动刷新间隔」
+  if (def.autoCreds) return saveAutoInterval(def);
   el.detailSave.disabled = true;
   el.detailSave.textContent = "保存中…";
   try {
@@ -996,6 +1012,28 @@ async function saveDetail() {
     await reloadCatalog();
     await refresh(true);
     closeSettings();
+  } catch (e) {
+    setSettingsMsg("err", String(e));
+  } finally {
+    el.detailSave.disabled = false;
+    syncFoot();
+  }
+}
+
+/// 自动凭证源（Trae）只保存刷新间隔：该源在后端是「源 id 即账号 id」的固定条目
+async function saveAutoInterval(def) {
+  el.detailSave.disabled = true;
+  el.detailSave.textContent = "保存中…";
+  try {
+    const accId = (def.accounts || [])[0]?.id || def.id;
+    const secs = await invoke("set_refresh_interval", {
+      accountId: accId,
+      seconds: readIntervalValue(el.detailAutoIntervalInput),
+    });
+    await reloadCatalog();
+    openDetail(def.id);
+    await refresh(true);
+    setSettingsMsg("ok", `已保存，自动刷新间隔 ${secs} 秒`);
   } catch (e) {
     setSettingsMsg("err", String(e));
   } finally {

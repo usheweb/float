@@ -145,6 +145,20 @@
             + 新增账号
           </button>
 
+          <!-- 自动凭证源（Trae）没有账号表单，刷新间隔在这里单独设置 -->
+          <div id="detail-auto-interval" class="field hidden">
+            <span class="field-label">自动刷新间隔（秒）</span>
+            <input
+              id="detail-auto-interval-input"
+              type="number"
+              min="5"
+              max="3600"
+              step="5"
+              inputmode="numeric"
+              autocomplete="off"
+            />
+          </div>
+
           <!-- 账号表单（新增或编辑）：账号名 + 平台凭证字段 + 刷新间隔 -->
           <div id="account-form" class="hidden">
             <div class="field">
