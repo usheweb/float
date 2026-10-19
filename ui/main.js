@@ -1158,14 +1158,34 @@ el.floatClose.addEventListener("click", () => setPinned(false));
 // 这里必须用屏幕绝对坐标 e.screenX/e.screenY：拖拽时窗口跟着指针一起走，
 // 指针相对窗口的 clientX/clientY 几乎不变，只有屏幕坐标才反映真实位移。
 let floatDown = null;
+/// 这一次按下有没有真的拖动窗口（Windows 走下面的阈值拖拽，拖过就不算点击）
+let floatDragged = false;
+
 el.floatCard.addEventListener("pointerdown", (e) => {
   if (e.button !== 0) return;
   floatDown = { x: e.screenX, y: e.screenY };
+  floatDragged = false;
   // 一按下去（可能拖拽）就收起提示窗，别让提示跟着窗口一起拖
   tipHold = true;
   clearTimeout(tipTimer);
   hideTip();
 });
+
+// Windows 不能用 Tauri 默认的「按下即拖」（data-tauri-drag-region="deep"）：
+// 那条路走的是系统模态拖拽循环，鼠标松开的消息在那个循环里就被吃掉了，网页永远
+// 收不到 click —— 表现就是「点卡片刷新，点了没反应」，偶尔数字变了其实是自动刷新。
+// 这里改成先把窗口留着，指针真的移动了（阈值 5px）才把窗口交给系统去拖；
+// 没移动就按普通点击走 click → 点击刷新恢复可靠。macOS 保持按下即拖不变。
+if (document.body.classList.contains("is-windows")) {
+  el.floatCard.removeAttribute("data-tauri-drag-region");
+  el.floatCard.addEventListener("pointermove", (e) => {
+    if (!floatDown || floatDragged || e.buttons !== 1) return;
+    if (Math.hypot(e.screenX - floatDown.x, e.screenY - floatDown.y) < 5) return;
+    floatDragged = true;
+    invoke("plugin:window|start_dragging").catch(() => {});
+  });
+}
+
 el.floatCard.addEventListener("pointercancel", () => {
   floatDown = null;
 });
@@ -1174,7 +1194,7 @@ el.floatCard.addEventListener("click", (e) => {
   const moved =
     floatDown && Math.hypot(e.screenX - floatDown.x, e.screenY - floatDown.y) > 6;
   floatDown = null;
-  if (moved) return;
+  if (moved || floatDragged) return;
   if (lockedScene) connectAccount(activeAccount);
   else refresh(true);
 });

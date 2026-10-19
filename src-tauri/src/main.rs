@@ -2550,6 +2550,20 @@ const NORMAL_MIN_H: f64 = 240.0;
 // 高度以内容里最高的元素（52px 的圆环）为基准：卡片竖向留白 = COMPACT_H - 52，
 // 定 61 后上下各约 4.5px（70 是各 9px，用户要求再减半）。
 const COMPACT_W: f64 = 320.0;
+/// Windows 下字体回退到微软雅黑，同样的文案比 macOS 宽一截：实测 320 会把 Trae 那个
+/// 带天数的副标题（…天（MM-DD 重置））截成省略号。Windows 上限放宽，macOS 文案本就
+/// 放得下、保持 320 不动。
+const COMPACT_W_WINDOWS: f64 = 384.0;
+
+/// 当前平台允许的悬浮窗最大宽度
+fn compact_max_w() -> f64 {
+    if cfg!(windows) {
+        COMPACT_W_WINDOWS
+    } else {
+        COMPACT_W
+    }
+}
+
 const COMPACT_H: f64 = 61.0;
 const COMPACT_MIN_W: f64 = 180.0;
 const COMPACT_MIN_H: f64 = 56.0;
@@ -2698,9 +2712,9 @@ fn apply_pinned_style(window: &tauri::WebviewWindow) -> Result<(), String> {
 }
 
 /// 计算「定住」后的目标矩形：高度固定为悬浮高度，宽度取前端量到的贴合宽度
-/// （`None` 则用上限 COMPACT_W），位置优先还原上次摆放处，否则沿用当前坐标。
+/// （`None` 则用平台上限 compact_max_w），位置优先还原上次摆放处，否则沿用当前坐标。
 fn pinned_target(window: &tauri::WebviewWindow, width: Option<f64>) -> ((i32, i32), (u32, u32)) {
-    let w = width.unwrap_or(COMPACT_W).clamp(COMPACT_MIN_W, COMPACT_W);
+    let w = width.unwrap_or(compact_max_w()).clamp(COMPACT_MIN_W, compact_max_w());
     let target_size = physical_size(window, w, COMPACT_H);
     let cur = window.outer_position().map(|p| (p.x, p.y)).unwrap_or((0, 0));
     let pos = clamped_pos(window, saved_float_pos(window.app_handle()).unwrap_or(cur), target_size);
@@ -2863,7 +2877,7 @@ fn set_float_width(window: tauri::WebviewWindow, width: f64) -> Result<(), Strin
     if !PINNED.load(Ordering::Relaxed) {
         return Ok(());
     }
-    let w = width.clamp(COMPACT_MIN_W, COMPACT_W);
+    let w = width.clamp(COMPACT_MIN_W, compact_max_w());
     let (pw, ph) = physical_size(&window, w, COMPACT_H);
     window
         .set_size(tauri::PhysicalSize::new(pw, ph))
