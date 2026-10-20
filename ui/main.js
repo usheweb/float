@@ -259,34 +259,94 @@ function renderFloat() {
 
 /// 上次应用到窗口的悬浮卡宽度（逻辑像素），用来抑制数字位数变化带来的反复抖动
 let floatWidth = 0;
+/// 量值偏窄的累计补偿：校验发现仍有截断并补宽后记下差额，之后按「量值 + 补偿」落宽。
+/// 不记的话，下次刷新会按偏窄的量值把窗口缩回去、再被校验补宽，形成来回跳。
+let floatWidthBias = 0;
 
 /// 量出卡片「贴合内容」时的宽度：临时把卡片设为脱离文档流 + max-content，
 /// 读完立刻还原样式——同一个任务里量完就还原，浏览器来不及重绘，用户看不到这一下。
+///
+/// 只把卡片设成 max-content 不够：`.float-info` 是 flex:1 子项，在容器的 max-content
+/// 计算里按 flex-basis(0) 参与，内容宽度会被算漏，量出来的值比实际需要的窄一截
+/// （Windows 上 194 的量值对着 208 的实际需要），窗口照此收缩后副标题就被省略号截掉。
+/// 所以同时把它按内容定宽，量完再还原。
 function measureFloatWidth() {
   const card = el.floatCard;
-  if (!card) return 0;
-  const prev = card.getAttribute("style");
+  const info = card?.querySelector(".float-info");
+  if (!card || !info) return 0;
+  const prevCard = card.getAttribute("style");
+  const prevInfo = info.getAttribute("style");
   card.style.position = "absolute";
   card.style.width = "max-content";
-  const w = card.offsetWidth;
-  if (prev === null) card.removeAttribute("style");
-  else card.setAttribute("style", prev);
+  info.style.flex = "0 0 auto";
+  info.style.width = "max-content";
+  // 取小数宽（offsetWidth 取整会少算不到 1px，正文可能就差这 1px 出省略号）
+  const w = Math.ceil(card.getBoundingClientRect().width);
+  if (prevInfo === null) info.removeAttribute("style");
+  else info.setAttribute("style", prevInfo);
+  if (prevCard === null) card.removeAttribute("style");
+  else card.setAttribute("style", prevCard);
   return w;
+}
+
+/// 卡片里被省略号截掉的最大像素量：`.float-sub` / `.float-label` 的文字都是
+/// nowrap + overflow:hidden，scrollWidth 仍是完整文本宽度，减去 clientWidth 就是缺口。
+/// 用来在窗口按量值收缩后做一次「真的没截断吗」的校验，把预估误差补掉。
+function floatClipOverflow() {
+  const nodes = el.floatCard?.querySelectorAll(".float-sub, .float-label > span:first-child");
+  let max = 0;
+  if (nodes) for (const n of nodes) max = Math.max(max, n.scrollWidth - n.clientWidth);
+  return max;
+}
+
+/// 窗口宽度落地后校验文字是否仍被省略号截断：仍有缺口就按缺口加宽再落一次
+/// （最多两轮）。量出来的宽度在 Windows（字体回退到微软雅黑）上偶尔差几像素，
+/// 光靠预估不够，实测一遍才稳。宽度没变时也要校验——首次定住的量值如果偏窄，
+/// 它本身就是「贴合」的，光看差值会被 6px 防抖挡掉，永远修不回来。
+function verifyFloatWidth(tries = 2) {
+  if (tries <= 0) return;
+  if (pinAnimating) {
+    // 过渡期间窗口尺寸由 Rust 的动画接管，等它结束再校验（结束后 pinAnimating 自动复位）
+    setTimeout(() => verifyFloatWidth(tries), 320);
+    return;
+  }
+  // 等 WebView 把新窗口宽度应用到布局上（下一帧起效）再量，否则量到的还是旧宽度
+  requestAnimationFrame(() => {
+    requestAnimationFrame(async () => {
+      if (pinAnimating || !document.body.classList.contains("pinned")) return;
+      const gap = floatClipOverflow();
+      if (gap <= 0) return;
+      // 记下这次补宽的量，后续量值一并加上它，避免下次刷新又缩回去
+      floatWidthBias += gap + 2;
+      const fixed = floatWidth + gap + 2;
+      floatWidth = fixed;
+      try {
+        await invoke("set_float_width", { width: fixed });
+      } catch (_) {
+        /* 改不动尺寸不影响内容展示，保持原宽度即可 */
+        return;
+      }
+      verifyFloatWidth(tries - 1);
+    });
+  });
 }
 
 /// 定住态下让窗口宽度贴合内容；只有宽度变化超过 6px 才真正改窗口，
 /// 避免刷新时数字从 36,212.47 变成 9,999.99 就抖一下。
 async function fitFloatWidth(force = false) {
   if (!document.body.classList.contains("pinned")) return;
-  const w = measureFloatWidth();
+  const w = measureFloatWidth() + floatWidthBias;
   if (!w) return;
-  if (!force && Math.abs(w - floatWidth) < 6) return;
-  floatWidth = w;
-  try {
-    await invoke("set_float_width", { width: w });
-  } catch (_) {
-    /* 改不动尺寸不影响内容展示，保持原宽度即可 */
+  if (force || Math.abs(w - floatWidth) >= 6) {
+    floatWidth = w;
+    try {
+      await invoke("set_float_width", { width: w });
+    } catch (_) {
+      /* 改不动尺寸不影响内容展示，保持原宽度即可 */
+      return;
+    }
   }
+  verifyFloatWidth();
 }
 
 /* ---------- 窗口高度贴合内容 ---------- */
@@ -1148,7 +1208,7 @@ async function setPinned(on) {
       // 二是让收缩过程里展示的就是悬浮卡片（Rust 随后还会补发一次 pin-state）
       document.body.classList.add("pinned");
       updateFloat();
-      const w = measureFloatWidth();
+      const w = measureFloatWidth() + floatWidthBias;
       floatWidth = w;
       await invoke("set_pinned", { on, width: w || null });
     } else {
