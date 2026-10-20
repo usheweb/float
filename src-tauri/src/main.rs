@@ -10,6 +10,7 @@ use hmac::{Hmac, Mac};
 use sha1::Sha1;
 use sha2::{Digest, Sha256, Sha512};
 use tauri::{Emitter, Manager};
+use tauri_plugin_autostart::ManagerExt;
 
 const HOST: &str = "ark.cn-beijing.volcengineapi.com";
 const REGION: &str = "cn-beijing";
@@ -2942,6 +2943,27 @@ fn show_window(window: tauri::WebviewWindow) -> Result<(), String> {
     window.show().map_err(|e| e.to_string())
 }
 
+/* ---------- 开机自启动 ---------- */
+
+/// 是否已设置开机自启动。以系统里的真实配置为准（macOS 写 LaunchAgent plist、
+/// Windows 写注册表 Run 项），避免界面开关和系统实际状态对不上。
+#[tauri::command]
+fn autostart_enabled(app: tauri::AppHandle) -> Result<bool, String> {
+    app.autolaunch().is_enabled().map_err(|e| e.to_string())
+}
+
+/// 开启 / 取消开机自启动，返回落定后的实际状态给前端回显。
+#[tauri::command]
+fn set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<bool, String> {
+    let autolaunch = app.autolaunch();
+    if enabled {
+        autolaunch.enable().map_err(|e| e.to_string())?;
+    } else {
+        autolaunch.disable().map_err(|e| e.to_string())?;
+    }
+    autolaunch.is_enabled().map_err(|e| e.to_string())
+}
+
 /* ---------- 悬浮卡片悬停提示窗 ---------- */
 
 /// 提示窗尺寸（逻辑像素）与它和卡片之间的间距。
@@ -3133,6 +3155,12 @@ fn hide_float_tip(app: tauri::AppHandle) -> Result<(), String> {
 
 fn main() {
     tauri::Builder::default()
+        // 开机自启动：macOS 走 LaunchAgent（写 ~/Library/LaunchAgents 的 plist），
+        // Windows 走注册表 Run 项，Linux 走 ~/.config/autostart
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .setup(|app| {
             // 启动阶段零钥匙串访问：两次一次性迁移（明文→钥匙串、遗留服务名迁移）
             // 已挪到「连接账号」按需解锁流程里执行，见 unlock_accounts。
@@ -3222,6 +3250,8 @@ fn main() {
             set_tip_height,
             show_card_menu,
             startup_state,
+            autostart_enabled,
+            set_autostart,
             show_window,
             show_float_tip,
             hide_float_tip

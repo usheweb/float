@@ -51,6 +51,8 @@ const el = {
   listView: document.getElementById("settings-list-view"),
   detailView: document.getElementById("settings-detail-view"),
   sourceList: document.getElementById("source-list"),
+  autostartSub: document.getElementById("autostart-sub"),
+  autostartToggle: document.getElementById("autostart-toggle"),
   detailDesc: document.getElementById("detail-desc"),
   detailInfo: document.getElementById("detail-info"),
   accountList: document.getElementById("account-list"),
@@ -622,6 +624,50 @@ function settingsOpen() {
   return !el.settingsModal.classList.contains("hidden");
 }
 
+/* ---------- 开机自启动 ---------- */
+
+/// 自启动状态：每次打开设置都向后端查系统里的真实配置，不做本地记忆
+let autostartOn = false;
+
+/// 刷到设置行上。按钮文案写「下一步要做的动作」，只给状态标签用户看不出这里能点
+function renderAutostart() {
+  el.autostartToggle.disabled = false;
+  el.autostartToggle.className = autostartOn ? "primary-btn" : "ghost-btn";
+  el.autostartToggle.textContent = autostartOn ? "取消自启动" : "开启自启动";
+  el.autostartSub.textContent = autostartOn
+    ? "已开启：登录系统后自动启动悬浮窗"
+    : "未开启：需要手动启动悬浮窗";
+}
+
+async function loadAutostart() {
+  let fail = "";
+  try {
+    autostartOn = (await invoke("autostart_enabled")) === true;
+  } catch (e) {
+    autostartOn = false;
+    fail = String(e);
+  }
+  renderAutostart();
+  // 读不到就说清原因（比如该平台不支持写自启动项），别让用户以为开关坏了
+  if (fail) el.autostartSub.textContent = `读取失败：${fail}`;
+}
+
+/// 切换自启动：失败时保持原状态，把原因写在副标题上，比弹窗提示更就近
+async function toggleAutostart() {
+  const next = !autostartOn;
+  el.autostartToggle.disabled = true;
+  el.autostartSub.textContent = next ? "正在开启…" : "正在取消…";
+  try {
+    autostartOn = (await invoke("set_autostart", { enabled: next })) === true;
+  } catch (e) {
+    el.autostartToggle.disabled = false;
+    el.autostartToggle.textContent = autostartOn ? "取消自启动" : "开启自启动";
+    el.autostartSub.textContent = `设置失败：${e}`;
+    return;
+  }
+  renderAutostart();
+}
+
 function showView(name) {
   el.listView.classList.toggle("hidden", name !== "list");
   el.detailView.classList.toggle("hidden", name !== "detail");
@@ -704,6 +750,8 @@ async function reloadCatalog() {
 
 async function openSettings() {
   setSettingsMsg("", "");
+  // 自启动状态放在列表页，独立于数据源清单，取数失败也要能显示
+  loadAutostart();
   try {
     await reloadCatalog();
   } catch (e) {
@@ -1159,6 +1207,7 @@ el.detailCancel.addEventListener("click", () => {
   closeAccountForm();
 });
 el.accountAdd.addEventListener("click", () => openAccountForm(null));
+el.autostartToggle.addEventListener("click", toggleAutostart);
 el.detailSave.addEventListener("click", saveDetail);
 el.detailTest.addEventListener("click", testDetail);
 

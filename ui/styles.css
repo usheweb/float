@@ -955,6 +955,35 @@ body.pinned .float {
   overflow-y: auto;
 }
 
+/* 开关类设置行（目前是「开机自启动」）：整行不可点，右侧按钮才是操作入口 */
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 11px;
+  border: 1px solid var(--card-border);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.setting-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.setting-row-title {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.setting-row-sub {
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+
 .source-row {
   display: flex;
   align-items: center;
