@@ -1,11 +1,74 @@
 /* ============================================================
-   唐三浪家族统一视觉（对齐 dbmanx / clean-c 深色体系）
-   深空暗底 + 青色霓虹 + 紫色次强调 + 玻璃拟态面板 + 42px 网格底纹。
+   唐三浪家族统一视觉（对齐 dbmanx / clean-c）
+   亮色为默认主题（浅灰蓝底 + 青绿主色），暗色为用户手动切换项
+   （深空暗底 + 青色霓虹）。两套主题共用同一套圆角 / 字体 / 结构。
    所有颜色一律走这里的变量，组件里禁止写死色值。
-   悬浮窗只有深色一套（常驻桌面，浅色在壁纸上反而晃眼）。
+   主题由 <html data-theme="dark"> 切换，见 ui/theme.js。
    ============================================================ */
 
+/* ---------- 共享：圆角、字体、过渡 ---------- */
 :root {
+  /* 圆角（对齐 DBMan 的收紧刻度） */
+  --r-sm: 6px;
+  --r: 8px;
+  --r-md: 10px;
+  --r-lg: 14px;
+
+  /* 字体：中文优先；等宽用 JetBrains Mono */
+  --font-ui: "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei",
+    -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", Consolas, "Courier New", monospace;
+
+  --transition: 160ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ---------- 亮色（默认） ---------- */
+:root {
+  color-scheme: light;
+
+  /* 结构色 */
+  --bg-0: #eef2f8;
+  --bg-1: #e2e9f3;
+  --panel: rgba(255, 255, 255, 0.72);
+  --panel-solid: #ffffff;
+  --line: rgba(0, 141, 168, 0.22);
+  --line-strong: rgba(0, 141, 168, 0.5);
+
+  /* 墨色通道：面板渐变、输入框底、遮罩共用，避免组件里散落 rgba 字面量 */
+  --panel-rgb: 255, 255, 255;
+  --ink-rgb: 244, 247, 252;
+  --ink-hi-rgb: 255, 255, 255;
+  --scrim: rgba(15, 23, 42, 0.4);
+
+  /* 强调色（亮色用加深后的青，保证白底上的对比度） */
+  --cyan: #008da8;
+  --cyan-rgb: 0, 141, 168;
+  --violet: #6b4ee6;
+  --violet-rgb: 107, 78, 230;
+  --magenta: #d62266;
+  --magenta-rgb: 214, 34, 102;
+  --green: #0a9e6e;
+  --green-rgb: 10, 158, 110;
+  --yellow: #9a6700;
+  --yellow-rgb: 154, 103, 0;
+
+  /* 文字 */
+  --text: #16283d;
+  --text-dim: #5a6f86;
+  --text-faint: #8493a5;
+  --on-accent: #04252e;
+
+  /* 圆环轨道：亮色底偏浅，降低透明度会看不见 */
+  --ring-track: rgba(0, 141, 168, 0.18);
+
+  /* 发光：统一走这三个，不在组件里临时拼 box-shadow */
+  --glow-cyan: 0 0 8px rgba(var(--cyan-rgb), 0.28), 0 0 20px rgba(var(--cyan-rgb), 0.1);
+  --glow-violet: 0 0 8px rgba(var(--violet-rgb), 0.26), 0 0 20px rgba(var(--violet-rgb), 0.1);
+  --glow-danger: 0 0 8px rgba(var(--magenta-rgb), 0.28), 0 0 20px rgba(var(--magenta-rgb), 0.1);
+}
+
+/* ---------- 暗色（手动切换） ---------- */
+:root[data-theme="dark"] {
   color-scheme: dark;
 
   /* 结构色 */
@@ -16,7 +79,6 @@
   --line: rgba(0, 214, 255, 0.14);
   --line-strong: rgba(0, 214, 255, 0.45);
 
-  /* 墨色通道：面板渐变、输入框底、遮罩共用，避免组件里散落 rgba 字面量 */
   --panel-rgb: 13, 21, 38;
   --ink-rgb: 4, 7, 15;
   --ink-hi-rgb: 16, 25, 45;
@@ -40,23 +102,11 @@
   --text-faint: #5b7187;
   --on-accent: #eafcff;
 
-  /* 发光：统一走这三个，不在组件里临时拼 box-shadow */
+  --ring-track: rgba(0, 229, 255, 0.12);
+
   --glow-cyan: 0 0 10px rgba(var(--cyan-rgb), 0.55), 0 0 26px rgba(var(--cyan-rgb), 0.2);
   --glow-violet: 0 0 10px rgba(var(--violet-rgb), 0.5), 0 0 26px rgba(var(--violet-rgb), 0.18);
   --glow-danger: 0 0 10px rgba(var(--magenta-rgb), 0.5), 0 0 26px rgba(var(--magenta-rgb), 0.2);
-
-  /* 圆角（对齐 DBMan 的收紧刻度） */
-  --r-sm: 6px;
-  --r: 8px;
-  --r-md: 10px;
-  --r-lg: 14px;
-
-  /* 字体：中文优先；等宽用 JetBrains Mono */
-  --font-ui: "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei",
-    -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", "SF Mono", Consolas, "Courier New", monospace;
-
-  --transition: 160ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 * {
@@ -443,7 +493,7 @@ body {
 }
 
 .ring-bg {
-  stroke: rgba(var(--cyan-rgb), 0.12);
+  stroke: var(--ring-track);
 }
 
 .ring-fg {
@@ -623,7 +673,7 @@ body.pinned .float {
 }
 
 .float-ring-bg {
-  stroke: rgba(var(--cyan-rgb), 0.14);
+  stroke: var(--ring-track);
 }
 
 .float-ring-fg {
@@ -1022,13 +1072,13 @@ body.pinned .float {
 }
 
 .ghost-btn.danger:hover {
-  color: #fff;
-  background: rgba(var(--magenta-rgb), 0.3);
+  color: var(--magenta);
+  background: rgba(var(--magenta-rgb), 0.16);
   border-color: var(--magenta);
   box-shadow: var(--glow-danger);
 }
 
-/* 主按钮走 DBMan 深色体系：半透明青紫渐变底 + 青色描边 + 悬停发光，不用实心色块 */
+/* 主按钮走 DBMan 的渐变描边风格：半透明青紫渐变底 + 青色描边 + 悬停发光，不用实心色块 */
 .primary-btn {
   color: var(--cyan);
   border-color: var(--line-strong);

@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>唐三浪悬浮窗</title>
+    <!-- 主题必须在样式表之前确定，避免首屏闪一下另一套主题 -->
+    <script src="theme.js"></script>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -139,6 +141,15 @@
             <button type="button" class="ghost-btn" id="autostart-toggle" disabled>
               读取中…
             </button>
+          </div>
+
+          <!-- 外观主题：默认亮色，暗色为手动切换项，选择存本机 -->
+          <div class="setting-row" id="theme-row">
+            <div class="setting-row-main">
+              <span class="setting-row-title">外观主题</span>
+              <span class="setting-row-sub" id="theme-sub">亮色（默认）</span>
+            </div>
+            <button type="button" class="ghost-btn" id="theme-toggle">切换为暗色</button>
           </div>
         </div>
 

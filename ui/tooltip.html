@@ -3,11 +3,26 @@
   <head>
     <meta charset="UTF-8" />
     <title>提示</title>
+    <!-- 与主窗口共用主题选择，避免提示窗和悬浮窗一深一浅 -->
+    <script src="theme.js"></script>
     <style>
       /* 悬浮卡片悬停时的提示窗：独立小窗口，内容由主窗口通过 tip-data 事件推过来。
          窗口不接鼠标事件（Rust 侧 ignore_cursor_events），这里只管画。 */
       :root {
-        /* 与主窗口同一套家族令牌（深空底 + 霓虹青 + 紫），提示窗独立窗口也保持一致 */
+        /* 与主窗口同一套家族令牌（亮色为默认，暗色由主窗口通过 theme-change 事件同步） */
+        color-scheme: light;
+        --tip-bg: linear-gradient(160deg, rgba(255, 255, 255, 0.98), rgba(244, 247, 252, 0.98));
+        --tip-border: rgba(0, 141, 168, 0.26);
+        --tip-text: #16283d;
+        --tip-dim: #5a6f86;
+        --tip-faint: #8493a5;
+        --tip-accent: #008da8;
+        --tip-warn: #9a6700;
+        --tip-sep: rgba(0, 141, 168, 0.2);
+      }
+
+      :root[data-theme="dark"] {
+        color-scheme: dark;
         --tip-bg: linear-gradient(160deg, rgba(16, 25, 45, 0.98), rgba(4, 7, 15, 0.98));
         --tip-border: rgba(0, 214, 255, 0.22);
         --tip-text: #cfe6f5;
@@ -15,6 +30,7 @@
         --tip-faint: #5b7187;
         --tip-accent: #00e5ff;
         --tip-warn: #ffd166;
+        --tip-sep: rgba(0, 214, 255, 0.14);
       }
 
       * {
@@ -103,7 +119,7 @@
       .tip-sep {
         height: 1px;
         margin: 7px 0 5px;
-        background: rgba(0, 214, 255, 0.14);
+        background: var(--tip-sep);
       }
 
       .tip-foot {

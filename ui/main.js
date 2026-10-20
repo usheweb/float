@@ -53,6 +53,8 @@ const el = {
   sourceList: document.getElementById("source-list"),
   autostartSub: document.getElementById("autostart-sub"),
   autostartToggle: document.getElementById("autostart-toggle"),
+  themeSub: document.getElementById("theme-sub"),
+  themeToggle: document.getElementById("theme-toggle"),
   detailDesc: document.getElementById("detail-desc"),
   detailInfo: document.getElementById("detail-info"),
   accountList: document.getElementById("account-list"),
@@ -668,6 +670,34 @@ async function toggleAutostart() {
   renderAutostart();
 }
 
+/* ---------- 外观主题 ---------- */
+
+/// 亮色为默认值，暗色在设置里手动切换；选择存本机（theme.js 在首屏同步读取）
+const THEME_KEY = "afp:theme";
+let theme = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+
+function renderTheme() {
+  el.themeSub.textContent = theme === "dark" ? "暗色" : "亮色（默认）";
+  el.themeToggle.textContent = theme === "dark" ? "切换为亮色" : "切换为暗色";
+}
+
+function applyTheme(next) {
+  theme = next === "dark" ? "dark" : "light";
+  document.documentElement.dataset.theme = theme;
+  try {
+    localStorage.setItem(THEME_KEY, theme);
+  } catch (_) {
+    /* 落盘失败只影响下次启动，本次已经生效 */
+  }
+  renderTheme();
+  // 提示窗是独立窗口，拿不到主窗口的 CSS 状态，通知它一起换主题
+  window.__TAURI__.event.emit("theme-change", theme).catch(() => {});
+}
+
+function toggleTheme() {
+  applyTheme(theme === "dark" ? "light" : "dark");
+}
+
 function showView(name) {
   el.listView.classList.toggle("hidden", name !== "list");
   el.detailView.classList.toggle("hidden", name !== "detail");
@@ -752,6 +782,7 @@ async function openSettings() {
   setSettingsMsg("", "");
   // 自启动状态放在列表页，独立于数据源清单，取数失败也要能显示
   loadAutostart();
+  renderTheme();
   try {
     await reloadCatalog();
   } catch (e) {
@@ -1208,6 +1239,7 @@ el.detailCancel.addEventListener("click", () => {
 });
 el.accountAdd.addEventListener("click", () => openAccountForm(null));
 el.autostartToggle.addEventListener("click", toggleAutostart);
+el.themeToggle.addEventListener("click", toggleTheme);
 el.detailSave.addEventListener("click", saveDetail);
 el.detailTest.addEventListener("click", testDetail);
 

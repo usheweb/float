@@ -49,3 +49,8 @@ function render(p) {
 }
 
 listen("tip-data", (e) => render(e.payload));
+
+// 主窗口切换主题时同步过来：两个窗口各自一份 CSS，必须显式通知
+listen("theme-change", (e) => {
+  document.documentElement.dataset.theme = e.payload === "dark" ? "dark" : "light";
+});
