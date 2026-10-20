@@ -650,13 +650,18 @@ body.pinned .float {
   overflow: hidden;
   display: flex;
   align-items: center;
-  gap: 10px;
+  /* 环与文字之间只留 3px：宽度是按内容量出来的，Windows 字体更宽，
+     间距大了右侧「重置」这类副标题容易被顶到边界外 */
+  gap: 3px;
   padding: 0 4px;
   border-radius: 20px;
   /* 与 DBMan 面板同一套深空底：玻璃质感的渐变 + 青色描边 */
   background: linear-gradient(160deg, rgba(var(--ink-hi-rgb), 0.97), rgba(var(--ink-rgb), 0.97));
   border: 1px solid var(--line);
-  box-shadow: 0 0 22px -10px rgba(var(--cyan-rgb), 0.6);
+  /* 只能用内投影：窗口尺寸正好等于卡片尺寸，外投影落在窗口外的部分会被裁掉，
+     只剩四个圆角切口那一小块露出来，亮色主题下是一圈偏灰的青边，看着像方角。
+     （提示窗 v0.2.3 踩过同一个坑。） */
+  box-shadow: inset 0 0 22px -14px rgba(var(--cyan-rgb), 0.55);
 }
 
 .float-ring {

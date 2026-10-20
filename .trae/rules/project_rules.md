@@ -83,7 +83,8 @@
 
 - 卡片 / 弹窗 / 悬浮卡一律 `background: var(--panel)`（或 `--ink-*` 渐变）+ `backdrop-filter: blur(14px)`（保留 `-webkit-` 前缀）+ `1px solid var(--line)`，不用不透明死黑块。
 - 圆角收紧：`--r-sm: 6px`、`--r: 8px`、`--r-md: 10px`、`--r-lg: 14px`。卡片用 `--r-md`，输入框 / 小按钮用 `--r-sm`，弹窗 12px，`.float-card` 因是窄条保留 20px 胶囊。
-- 弹窗用 `--line-strong` 描边 + 青色内外阴影 + `--scrim` 遮罩（`blur(6px)`）；悬浮卡用 `--ink-*` 渐变 + 青色投影。
+- 弹窗用 `--line-strong` 描边 + 青色内外阴影 + `--scrim` 遮罩（`blur(6px)`）；悬浮卡用 `--ink-*` 渐变 + **inset 青色投影**。
+- **悬浮卡禁止用外投影**：窗口尺寸正好等于卡片尺寸，`box-shadow` 落在窗口外的部分会被裁掉，只在四角圆角切口露出灰青色边缘，亮色主题下看着像方角（提示窗 v0.2.3、悬浮卡 v0.3.16 各踩过一次）。
 - 发光统一走 `--glow-cyan` / `--glow-violet` / `--glow-danger`，不要临时拼 `box-shadow`。
 - 交互过渡统一 `var(--transition)`（`160ms cubic-bezier(.4,0,.2,1)`），按压用 `scale(.96)`，悬停用发光 + 描边加强，不做大幅位移。
 
