@@ -7,12 +7,14 @@
       /* 悬浮卡片悬停时的提示窗：独立小窗口，内容由主窗口通过 tip-data 事件推过来。
          窗口不接鼠标事件（Rust 侧 ignore_cursor_events），这里只管画。 */
       :root {
-        --tip-bg: linear-gradient(160deg, rgba(21, 27, 54, 0.98), rgba(9, 12, 26, 0.98));
-        --tip-border: rgba(120, 140, 220, 0.28);
-        --tip-text: #dbe4ff;
-        --tip-dim: #8b96bb;
-        --tip-faint: #6f7a9e;
-        --tip-accent: #34d399;
+        /* 与主窗口同一套家族令牌（深空底 + 霓虹青 + 紫），提示窗独立窗口也保持一致 */
+        --tip-bg: linear-gradient(160deg, rgba(16, 25, 45, 0.98), rgba(4, 7, 15, 0.98));
+        --tip-border: rgba(0, 214, 255, 0.22);
+        --tip-text: #cfe6f5;
+        --tip-dim: #6c839c;
+        --tip-faint: #5b7187;
+        --tip-accent: #00e5ff;
+        --tip-warn: #ffd166;
       }
 
       * {
@@ -95,13 +97,13 @@
         color: var(--tip-accent);
       }
       .tip-row.warn .tip-v {
-        color: #fbbf24;
+        color: var(--tip-warn);
       }
 
       .tip-sep {
         height: 1px;
         margin: 7px 0 5px;
-        background: rgba(255, 255, 255, 0.08);
+        background: rgba(0, 214, 255, 0.14);
       }
 
       .tip-foot {

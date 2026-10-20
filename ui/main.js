@@ -251,12 +251,12 @@ function renderFloat() {
     return;
   }
   el.floatRing.classList.remove("hidden");
-  fg.setAttribute("stroke", f.color || "#22d3ee");
+  fg.style.stroke = f.color || "var(--cyan)";
   fg.setAttribute("stroke-dasharray", FCIRC.toFixed(2));
   fg.setAttribute("stroke-dashoffset", (FCIRC * (1 - pct / 100)).toFixed(2));
   // 环里补上百分比，口径与展开视图一致（已用占比）；取整避免 100% 撑出环内
   el.floatRingPct.textContent = `${Math.round(pct)}%`;
-  el.floatRingPct.style.color = f.color || "#22d3ee";
+  el.floatRingPct.style.color = f.color || "var(--cyan)";
 }
 
 /// 上次应用到窗口的悬浮卡宽度（逻辑像素），用来抑制数字位数变化带来的反复抖动

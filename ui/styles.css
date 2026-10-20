@@ -1,16 +1,62 @@
+/* ============================================================
+   唐三浪家族统一视觉（对齐 dbmanx / clean-c 深色体系）
+   深空暗底 + 青色霓虹 + 紫色次强调 + 玻璃拟态面板 + 42px 网格底纹。
+   所有颜色一律走这里的变量，组件里禁止写死色值。
+   悬浮窗只有深色一套（常驻桌面，浅色在壁纸上反而晃眼）。
+   ============================================================ */
+
 :root {
-  --bg-0: #080b18;
-  --bg-1: #0d1226;
-  --card: rgba(255, 255, 255, 0.045);
-  --card-border: rgba(255, 255, 255, 0.09);
-  --text: #eef2ff;
-  --text-dim: #9aa4c7;
-  --text-faint: #6b7699;
-  --accent-a: #22d3ee;
-  --accent-b: #8b5cf6;
-  --ok: #34d399;
-  --warn: #fbbf24;
-  --danger: #f87171;
+  color-scheme: dark;
+
+  /* 结构色 */
+  --bg-0: #04070f;
+  --bg-1: #0a1020;
+  --panel: rgba(13, 21, 38, 0.66);
+  --panel-solid: #0d1526;
+  --line: rgba(0, 214, 255, 0.14);
+  --line-strong: rgba(0, 214, 255, 0.45);
+
+  /* 墨色通道：面板渐变、输入框底、遮罩共用，避免组件里散落 rgba 字面量 */
+  --panel-rgb: 13, 21, 38;
+  --ink-rgb: 4, 7, 15;
+  --ink-hi-rgb: 16, 25, 45;
+  --scrim: rgba(2, 5, 12, 0.72);
+
+  /* 强调色 */
+  --cyan: #00e5ff;
+  --cyan-rgb: 0, 229, 255;
+  --violet: #8b6cff;
+  --violet-rgb: 139, 108, 255;
+  --magenta: #ff3d81;
+  --magenta-rgb: 255, 61, 129;
+  --green: #25f4b0;
+  --green-rgb: 37, 244, 176;
+  --yellow: #ffd166;
+  --yellow-rgb: 255, 209, 102;
+
+  /* 文字 */
+  --text: #cfe6f5;
+  --text-dim: #6c839c;
+  --text-faint: #5b7187;
+  --on-accent: #eafcff;
+
+  /* 发光：统一走这三个，不在组件里临时拼 box-shadow */
+  --glow-cyan: 0 0 10px rgba(var(--cyan-rgb), 0.55), 0 0 26px rgba(var(--cyan-rgb), 0.2);
+  --glow-violet: 0 0 10px rgba(var(--violet-rgb), 0.5), 0 0 26px rgba(var(--violet-rgb), 0.18);
+  --glow-danger: 0 0 10px rgba(var(--magenta-rgb), 0.5), 0 0 26px rgba(var(--magenta-rgb), 0.2);
+
+  /* 圆角（对齐 DBMan 的收紧刻度） */
+  --r-sm: 6px;
+  --r: 8px;
+  --r-md: 10px;
+  --r-lg: 14px;
+
+  /* 字体：中文优先；等宽用 JetBrains Mono */
+  --font-ui: "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei",
+    -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", Consolas, "Courier New", monospace;
+
+  --transition: 160ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 * {
@@ -25,8 +71,7 @@ body {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
-    "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-ui);
   background: var(--bg-0);
   color: var(--text);
   overflow: hidden;
@@ -37,15 +82,29 @@ body {
   flex-direction: column;
 }
 
+/* 背景质感：左上青光晕 + 右下紫光晕 + 底色（与 DBMan 同值），
+   上面再压一层 42px 网格靠 mask 从中心淡出 */
 .bg-glow {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(900px 480px at 12% -8%, rgba(34, 211, 238, 0.16), transparent 62%),
-    radial-gradient(820px 460px at 96% 8%, rgba(139, 92, 246, 0.2), transparent 60%),
+    radial-gradient(1100px 680px at 10% -12%, rgba(var(--cyan-rgb), 0.12), transparent 60%),
+    radial-gradient(900px 620px at 105% 112%, rgba(var(--violet-rgb), 0.14), transparent 58%),
     linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 62%);
   z-index: 0;
   pointer-events: none;
+}
+
+.bg-glow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(var(--cyan-rgb), 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--cyan-rgb), 0.05) 1px, transparent 1px);
+  background-size: 42px 42px;
+  -webkit-mask-image: radial-gradient(circle at 50% 40%, #000 30%, transparent 85%);
+  mask-image: radial-gradient(circle at 50% 40%, #000 30%, transparent 85%);
 }
 
 /* ---------- 顶栏 ---------- */
@@ -58,9 +117,12 @@ body {
   padding-right: 14px;
   display: flex;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
-  background: rgba(11, 16, 34, 0.92);
-  backdrop-filter: blur(18px);
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(var(--panel-rgb), 0.92), rgba(var(--panel-rgb), 0.62));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  /* 底部一道极细的青光，与 DBMan 顶栏同手法 */
+  box-shadow: 0 1px 0 rgba(var(--cyan-rgb), 0.12), 0 12px 30px -20px rgba(var(--cyan-rgb), 0.7);
 }
 
 .is-windows .topbar {
@@ -89,27 +151,28 @@ body {
   flex: 0 0 auto;
   white-space: nowrap;
   font-size: 11.5px;
-  font-weight: 550;
+  font-weight: 600;
   color: var(--text-dim);
   padding: 5px 11px;
-  border-radius: 999px;
-  border: 1px solid var(--card-border);
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--r);
+  border: 1px solid var(--line);
+  background: rgba(var(--cyan-rgb), 0.04);
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: all var(--transition);
 }
 
 .tab:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(var(--cyan-rgb), 0.08);
+  border-color: var(--line-strong);
 }
 
+/* 选中态用「渐变底 + 青色描边 + 投影」，不用实心色块（与 DBMan 导航一致） */
 .tab.active {
-  color: #061620;
-  border-color: transparent;
-  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-  box-shadow: 0 4px 12px rgba(34, 211, 238, 0.22);
+  color: var(--cyan);
+  border-color: var(--line-strong);
+  background: linear-gradient(135deg, rgba(var(--cyan-rgb), 0.18), rgba(var(--violet-rgb), 0.16));
+  box-shadow: 0 0 22px -8px rgba(var(--cyan-rgb), 0.8);
 }
 
 .tab:active {
@@ -137,11 +200,18 @@ body {
 
 .brand-text h1 {
   font-size: 14px;
-  font-weight: 650;
-  letter-spacing: 0.3px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* 品牌名走青紫渐变字 + 发光，与 DBMan 标题同手法 */
+  background: linear-gradient(90deg, var(--cyan), var(--violet));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: var(--cyan);
+  filter: drop-shadow(0 0 8px rgba(var(--cyan-rgb), 0.35));
 }
 
 .brand-text p {
@@ -164,10 +234,10 @@ body {
   white-space: nowrap;
   flex: 0 0 auto;
   padding: 4px 9px;
-  border-radius: 999px;
-  color: #dbeafe;
-  background: linear-gradient(135deg, rgba(34, 211, 238, 0.2), rgba(139, 92, 246, 0.28));
-  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: var(--r-sm);
+  color: var(--cyan);
+  background: linear-gradient(135deg, rgba(var(--cyan-rgb), 0.16), rgba(var(--violet-rgb), 0.14));
+  border: 1px solid var(--line);
 }
 
 .refresh-btn {
@@ -175,21 +245,23 @@ body {
   align-items: center;
   gap: 5px;
   font-size: 11.5px;
-  font-weight: 550;
+  font-weight: 600;
   white-space: nowrap;
   flex: 0 0 auto;
-  color: var(--text);
+  color: var(--text-dim);
   padding: 6px 10px;
-  border-radius: 10px;
-  border: 1px solid var(--card-border);
-  background: rgba(255, 255, 255, 0.05);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: rgba(var(--cyan-rgb), 0.04);
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: all var(--transition);
 }
 
 .refresh-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--cyan);
+  background: rgba(var(--cyan-rgb), 0.08);
+  border-color: var(--line-strong);
+  box-shadow: var(--glow-cyan);
 }
 
 .refresh-btn:active {
@@ -245,13 +317,13 @@ body {
 }
 
 .status-dot.live {
-  background: var(--ok);
-  box-shadow: 0 0 10px rgba(52, 211, 153, 0.8);
+  background: var(--green);
+  box-shadow: 0 0 10px rgba(var(--green-rgb), 0.8);
 }
 
 .status-dot.err {
-  background: var(--danger);
-  box-shadow: 0 0 10px rgba(248, 113, 113, 0.8);
+  background: var(--magenta);
+  box-shadow: 0 0 10px rgba(var(--magenta-rgb), 0.8);
 }
 
 .countdown {
@@ -264,17 +336,19 @@ body {
   display: inline-flex;
   align-items: center;
   font-size: 12px;
-  font-weight: 550;
-  color: var(--accent-a, #8b5cf6);
-  background: rgba(139, 92, 246, 0.12);
-  border: 1px solid rgba(139, 92, 246, 0.35);
-  border-radius: 999px;
+  font-weight: 600;
+  color: var(--violet);
+  background: rgba(var(--violet-rgb), 0.12);
+  border: 1px solid rgba(var(--violet-rgb), 0.35);
+  border-radius: var(--r-sm);
   padding: 2px 8px;
   cursor: pointer;
+  transition: all var(--transition);
 }
 
 .link-btn:hover {
-  background: rgba(139, 92, 246, 0.2);
+  background: rgba(var(--violet-rgb), 0.2);
+  box-shadow: var(--glow-violet);
 }
 
 .link-btn:active {
@@ -301,10 +375,10 @@ body {
   gap: 10px;
   font-size: 12.5px;
   line-height: 1.55;
-  color: #fecaca;
-  background: rgba(248, 113, 113, 0.1);
-  border: 1px solid rgba(248, 113, 113, 0.32);
-  border-radius: 12px;
+  color: var(--magenta);
+  background: rgba(var(--magenta-rgb), 0.1);
+  border: 1px solid rgba(var(--magenta-rgb), 0.32);
+  border-radius: var(--r-md);
   padding: 12px 14px;
   margin-bottom: 16px;
   word-break: break-all;
@@ -323,24 +397,27 @@ body {
 
 .card {
   position: relative;
-  background: var(--card);
-  border: 1px solid var(--card-border);
-  border-radius: 16px;
+  background: var(--panel);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
   padding: 13px 15px;
   display: flex;
   align-items: center;
   gap: 14px;
   overflow: hidden;
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition);
 }
 
+/* 顶部一道青紫渐变的描边高光：DBMan 卡片的光感来源 */
 .card::before {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: 16px;
+  border-radius: var(--r-md);
   padding: 1px;
-  background: linear-gradient(135deg, rgba(34, 211, 238, 0.35), rgba(139, 92, 246, 0.05) 55%);
+  background: linear-gradient(135deg, rgba(var(--cyan-rgb), 0.35), rgba(var(--violet-rgb), 0.05) 55%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -350,7 +427,8 @@ body {
 
 .card:hover {
   transform: translateY(-2px);
-  border-color: rgba(139, 92, 246, 0.35);
+  border-color: var(--line-strong);
+  box-shadow: 0 8px 22px -14px rgba(var(--cyan-rgb), 0.8);
 }
 
 .ring {
@@ -365,10 +443,11 @@ body {
 }
 
 .ring-bg {
-  stroke: rgba(255, 255, 255, 0.08);
+  stroke: rgba(var(--cyan-rgb), 0.12);
 }
 
 .ring-fg {
+  stroke: var(--cyan);
   stroke-linecap: round;
   transition: stroke-dashoffset 0.8s cubic-bezier(0.22, 1, 0.36, 1), stroke 0.4s;
 }
@@ -416,7 +495,7 @@ body {
 }
 
 .card-sub .remain {
-  color: #a5f3fc;
+  color: var(--cyan);
   font-weight: 600;
 }
 
@@ -434,14 +513,22 @@ body {
   padding: 48px 0;
 }
 
-/* 滚动条 */
+/* 滚动条：青紫渐变滑块，与 DBMan / 清理一致 */
 .content::-webkit-scrollbar {
   width: 8px;
 }
 
+.content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(var(--cyan-rgb), 0.45), rgba(var(--violet-rgb), 0.45));
+  border-radius: var(--r-sm);
+}
+
+.content::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--cyan), var(--violet));
 }
 
 /* ---------- 定住按钮 ---------- */
@@ -450,20 +537,21 @@ body {
   align-items: center;
   gap: 5px;
   font-size: 12px;
-  font-weight: 550;
+  font-weight: 600;
   color: var(--text-dim);
   padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--card-border);
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: rgba(var(--cyan-rgb), 0.04);
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: all var(--transition);
 }
 
 .pin-btn:hover {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--cyan);
+  background: rgba(var(--cyan-rgb), 0.08);
+  border-color: var(--line-strong);
+  box-shadow: var(--glow-cyan);
 }
 
 .pin-btn:active {
@@ -515,8 +603,10 @@ body.pinned .float {
   gap: 10px;
   padding: 0 4px;
   border-radius: 20px;
-  background: linear-gradient(160deg, rgba(21, 27, 54, 0.97), rgba(9, 12, 26, 0.97));
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  /* 与 DBMan 面板同一套深空底：玻璃质感的渐变 + 青色描边 */
+  background: linear-gradient(160deg, rgba(var(--ink-hi-rgb), 0.97), rgba(var(--ink-rgb), 0.97));
+  border: 1px solid var(--line);
+  box-shadow: 0 0 22px -10px rgba(var(--cyan-rgb), 0.6);
 }
 
 .float-ring {
@@ -533,10 +623,11 @@ body.pinned .float {
 }
 
 .float-ring-bg {
-  stroke: rgba(255, 255, 255, 0.1);
+  stroke: rgba(var(--cyan-rgb), 0.14);
 }
 
 .float-ring-fg {
+  stroke: var(--cyan);
   stroke-linecap: round;
   transition: stroke-dashoffset 0.8s cubic-bezier(0.22, 1, 0.36, 1), stroke 0.4s;
 }
@@ -623,7 +714,7 @@ body.pinned .float {
   border-radius: 50%;
   border: none;
   padding: 0;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--cyan-rgb), 0.1);
   color: var(--text-dim);
   font-size: 12px;
   line-height: 1;
@@ -644,8 +735,9 @@ body.pinned .float {
 }
 
 .float-close:hover {
-  background: var(--danger);
+  background: var(--magenta);
   color: #fff;
+  box-shadow: var(--glow-danger);
 }
 
 /* ---------- 图标按钮 ---------- */
@@ -657,20 +749,21 @@ body.pinned .float {
   width: 28px;
   height: 28px;
   padding: 0;
-  border-radius: 9px;
+  border-radius: var(--r-sm);
   color: var(--text-dim);
   font-size: 15px;
   line-height: 1;
-  border: 1px solid var(--card-border);
-  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  background: transparent;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: all var(--transition);
 }
 
 .icon-btn:hover {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
+  color: var(--cyan);
+  background: rgba(var(--cyan-rgb), 0.08);
+  border-color: var(--line-strong);
+  box-shadow: var(--glow-cyan);
 }
 
 .icon-btn:active {
@@ -694,8 +787,9 @@ body.pinned .float {
 .modal-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(4, 7, 18, 0.66);
-  backdrop-filter: blur(3px);
+  background: var(--scrim);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
 .modal-card {
@@ -708,11 +802,12 @@ body.pinned .float {
   /* 弹窗里各区块（说明 / 字段 / 列表 / 底部按钮）的纵向间距，太挤会显得束手束脚 */
   gap: 12px;
   padding: 12px 14px 14px;
-  border-radius: 16px;
-  background: linear-gradient(165deg, rgba(24, 31, 61, 0.99), rgba(11, 15, 32, 0.99));
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
-  animation: modal-in 0.18s ease-out;
+  border-radius: 12px;
+  background: linear-gradient(160deg, rgba(var(--ink-hi-rgb), 0.96), rgba(var(--ink-rgb), 0.96));
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 0 45px -10px rgba(var(--cyan-rgb), 0.5),
+    inset 0 0 60px -40px rgba(var(--cyan-rgb), 0.6);
+  animation: modal-in 0.22s ease-out;
 }
 
 @keyframes modal-in {
@@ -739,8 +834,10 @@ body.pinned .float {
 
 .modal-head h2 {
   font-size: 13.5px;
-  font-weight: 650;
-  letter-spacing: 0.2px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  color: var(--cyan);
+  text-shadow: 0 0 12px rgba(var(--cyan-rgb), 0.4);
 }
 
 .modal-desc {
@@ -751,10 +848,10 @@ body.pinned .float {
 }
 
 .modal-desc code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 10.5px;
   color: var(--text-dim);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(var(--cyan-rgb), 0.06);
   border-radius: 4px;
   padding: 1px 4px;
 }
@@ -788,7 +885,7 @@ body.pinned .float {
   flex: 1 1 auto;
   min-width: 0;
   font-size: 11px;
-  color: var(--accent-a);
+  color: var(--cyan);
   text-decoration: none;
   white-space: nowrap;
   overflow: hidden;
@@ -803,34 +900,40 @@ body.pinned .float {
 .field-note {
   font-size: 11px;
   line-height: 1.6;
-  color: #fde68a;
-  background: rgba(251, 191, 36, 0.1);
-  border: 1px solid rgba(251, 191, 36, 0.3);
-  border-radius: 9px;
+  color: var(--yellow);
+  background: rgba(var(--yellow-rgb), 0.1);
+  border: 1px solid rgba(var(--yellow-rgb), 0.3);
+  border-radius: var(--r-sm);
   padding: 8px 10px;
 }
 
 .field input {
   width: 100%;
   min-width: 0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 11.5px;
   color: var(--text);
   padding: 6px 10px;
-  border-radius: 9px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.05);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: rgba(var(--ink-rgb), 0.55);
   outline: none;
-  transition: border-color 0.18s ease, background 0.18s ease;
+  transition: border-color var(--transition), box-shadow var(--transition),
+    background var(--transition);
 }
 
 .field input::placeholder {
   color: var(--text-faint);
 }
 
+.field input:hover {
+  border-color: var(--line-strong);
+}
+
 .field input:focus {
-  border-color: rgba(34, 211, 238, 0.55);
-  background: rgba(255, 255, 255, 0.07);
+  border-color: var(--cyan);
+  background: var(--panel-solid);
+  box-shadow: 0 0 0 3px rgba(var(--cyan-rgb), 0.18);
 }
 
 .field-row {
@@ -841,13 +944,13 @@ body.pinned .float {
 
 /* 只读展示值（自动凭证数据源的详情页）：不可编辑，可换行 */
 .ro {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 11.5px;
   color: var(--text);
   padding: 6px 10px;
-  border-radius: 9px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line);
+  background: rgba(var(--ink-rgb), 0.4);
   word-break: break-all;
   font-variant-numeric: tabular-nums;
 }
@@ -859,27 +962,27 @@ body.pinned .float {
 .settings-msg {
   font-size: 11.5px;
   line-height: 1.5;
-  border-radius: 9px;
+  border-radius: var(--r-sm);
   padding: 8px 10px;
   word-break: break-all;
 }
 
 .settings-msg.ok {
-  color: #bbf7d0;
-  background: rgba(52, 211, 153, 0.12);
-  border: 1px solid rgba(52, 211, 153, 0.32);
+  color: var(--green);
+  background: rgba(var(--green-rgb), 0.12);
+  border: 1px solid rgba(var(--green-rgb), 0.32);
 }
 
 .settings-msg.err {
-  color: #fecaca;
-  background: rgba(248, 113, 113, 0.12);
-  border: 1px solid rgba(248, 113, 113, 0.32);
+  color: var(--magenta);
+  background: rgba(var(--magenta-rgb), 0.12);
+  border: 1px solid rgba(var(--magenta-rgb), 0.32);
 }
 
 .settings-msg.warn {
-  color: #fde68a;
-  background: rgba(251, 191, 36, 0.12);
-  border: 1px solid rgba(251, 191, 36, 0.3);
+  color: var(--yellow);
+  background: rgba(var(--yellow-rgb), 0.12);
+  border: 1px solid rgba(var(--yellow-rgb), 0.3);
 }
 
 .modal-foot {
@@ -896,46 +999,53 @@ body.pinned .float {
   justify-content: center;
   gap: 5px;
   font-size: 11.5px;
-  font-weight: 550;
+  font-weight: 600;
   white-space: nowrap;
   padding: 7px 12px;
-  border-radius: 9px;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: all var(--transition);
 }
 
 .ghost-btn {
   color: var(--text-dim);
-  border: 1px solid var(--card-border);
-  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--line);
+  background: rgba(var(--cyan-rgb), 0.04);
 }
 
 .ghost-btn:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: var(--line-strong);
+  background: rgba(var(--cyan-rgb), 0.08);
+  transform: translateY(-1px);
 }
 
 .ghost-btn.danger:hover {
   color: #fff;
-  background: rgba(248, 113, 113, 0.85);
-  border-color: rgba(248, 113, 113, 0.85);
+  background: rgba(var(--magenta-rgb), 0.3);
+  border-color: var(--magenta);
+  box-shadow: var(--glow-danger);
 }
 
+/* 主按钮走 DBMan 深色体系：半透明青紫渐变底 + 青色描边 + 悬停发光，不用实心色块 */
 .primary-btn {
-  color: #04121b;
-  border: 1px solid transparent;
-  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
-  box-shadow: 0 6px 16px rgba(34, 211, 238, 0.22);
+  color: var(--cyan);
+  border-color: var(--line-strong);
+  background: linear-gradient(135deg, rgba(var(--cyan-rgb), 0.18), rgba(var(--violet-rgb), 0.18));
 }
 
 .primary-btn:hover {
-  filter: brightness(1.08);
+  color: var(--on-accent);
+  border-color: var(--cyan);
+  background: linear-gradient(135deg, rgba(var(--cyan-rgb), 0.32), rgba(var(--violet-rgb), 0.3));
+  box-shadow: var(--glow-cyan);
+  transform: translateY(-1px);
 }
 
 .ghost-btn:active,
 .primary-btn:active {
-  transform: scale(0.96);
+  transform: translateY(0);
 }
 
 .ghost-btn:disabled,
@@ -961,9 +1071,9 @@ body.pinned .float {
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border-radius: 11px;
-  border: 1px solid var(--card-border);
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: rgba(var(--cyan-rgb), 0.04);
 }
 
 .setting-row-main {
@@ -991,21 +1101,22 @@ body.pinned .float {
   width: 100%;
   text-align: left;
   padding: 10px 12px;
-  border-radius: 11px;
-  border: 1px solid var(--card-border);
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: rgba(var(--cyan-rgb), 0.04);
   color: var(--text);
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: all var(--transition);
 }
 
 .source-row:hover {
-  background: rgba(255, 255, 255, 0.085);
-  border-color: rgba(139, 92, 246, 0.35);
+  background: rgba(var(--cyan-rgb), 0.08);
+  border-color: var(--line-strong);
 }
 
 .source-row.current {
-  border-color: rgba(34, 211, 238, 0.45);
+  border-color: var(--line-strong);
+  box-shadow: 0 0 22px -8px rgba(var(--cyan-rgb), 0.8);
 }
 
 .source-row-main {
@@ -1034,7 +1145,7 @@ body.pinned .float {
 }
 
 .source-row-state.ok {
-  color: #6ee7b7;
+  color: var(--green);
 }
 
 #detail-fields {
@@ -1067,9 +1178,9 @@ body.pinned .float {
   flex-wrap: wrap;
   row-gap: 8px;
   padding: 10px 12px;
-  border-radius: 11px;
-  border: 1px solid var(--card-border);
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  background: rgba(var(--cyan-rgb), 0.04);
 }
 
 .account-row-main {
@@ -1094,20 +1205,22 @@ body.pinned .float {
 }
 
 .account-row-sub.ok {
-  color: #6ee7b7;
+  color: var(--green);
 }
 
 .account-row-sub.warn {
-  color: var(--warn);
+  color: var(--yellow);
 }
 
 .account-cur {
   flex: 0 0 auto;
   font-size: 10px;
-  color: #061620;
-  border-radius: 999px;
+  font-weight: 600;
+  color: var(--cyan);
+  border-radius: var(--r-sm);
   padding: 2px 7px;
-  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  background: linear-gradient(135deg, rgba(var(--cyan-rgb), 0.18), rgba(var(--violet-rgb), 0.16));
+  border: 1px solid var(--line);
 }
 
 .account-actions {
@@ -1146,9 +1259,11 @@ body.pinned .float {
 .balance-card {
   display: flex;
   flex-direction: column;
-  background: var(--card);
-  border: 1px solid var(--card-border);
-  border-radius: 16px;
+  background: var(--panel);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
   padding: 18px 16px;
 }
 
@@ -1183,7 +1298,7 @@ body.pinned .float {
   gap: 7px;
   margin-top: 14px;
   padding-top: 11px;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  border-top: 1px solid var(--line);
 }
 
 .balance-row {
@@ -1203,10 +1318,10 @@ body.pinned .float {
 .balance-warn {
   margin-top: 12px;
   font-size: 11.5px;
-  color: #fecaca;
-  background: rgba(248, 113, 113, 0.12);
-  border: 1px solid rgba(248, 113, 113, 0.32);
-  border-radius: 9px;
+  color: var(--magenta);
+  background: rgba(var(--magenta-rgb), 0.12);
+  border: 1px solid rgba(var(--magenta-rgb), 0.32);
+  border-radius: var(--r);
   padding: 7px 10px;
 }
 
@@ -1237,9 +1352,11 @@ body.pinned .float {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background: var(--card);
-  border: 1px solid var(--card-border);
-  border-radius: 16px;
+  background: var(--panel);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
   padding: 20px 18px;
 }
 
@@ -1261,14 +1378,14 @@ body.pinned .float {
 
 /* 设置列表里「已保存 · 待解锁」用琥珀色，区别于「未配置」的灰与「已配置」的绿 */
 .source-row-state.warn {
-  color: var(--warn);
+  color: var(--yellow);
 }
 
 /* 悬浮窗副标题在锁定态变成可点击的解锁入口（父级 .float-info 为 pointer-events:none） */
 .float-sub.float-action {
   pointer-events: auto;
   cursor: pointer;
-  color: var(--accent-a);
+  color: var(--cyan);
 }
 
 .float-sub.float-action:hover {

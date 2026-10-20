@@ -27,12 +27,13 @@ window.AFP_UTIL = (function () {
     return `${mm}-${dd} ${hm}`;
   }
 
-  /// 已用比例 -> 颜色：< 30% 绿、30~60% 蓝、60~85% 橙、≥ 85% 红
+  /// 已用比例 -> 颜色：< 30% 绿、30~60% 青、60~85% 黄、≥ 85% 品红
+  /// 一律返回家族 CSS 变量，颜色只在 styles.css 的 :root 里定义一份
   function ringColor(pct) {
-    if (pct >= 85) return "#f87171";
-    if (pct >= 60) return "#fbbf24";
-    if (pct >= 30) return "#22d3ee";
-    return "#34d399";
+    if (pct >= 85) return "var(--magenta)";
+    if (pct >= 60) return "var(--yellow)";
+    if (pct >= 30) return "var(--cyan)";
+    return "var(--green)";
   }
 
   /// 宽松取数：任意能转成正数的值

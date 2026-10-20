@@ -38,12 +38,12 @@
     return `${d} 天`;
   }
 
-  /// 到期紧迫度配色：≤7 天红、≤30 天黄，其余绿
+  /// 到期紧迫度配色：≤7 天品红、≤30 天黄，其余绿（取家族 CSS 变量）
   function urgencyColor(d) {
-    if (d === null) return "#9aa4c7";
-    if (d <= 7) return "#f87171";
-    if (d <= 30) return "#fbbf24";
-    return "#34d399";
+    if (d === null) return "var(--text-dim)";
+    if (d <= 7) return "var(--magenta)";
+    if (d <= 30) return "var(--yellow)";
+    return "var(--green)";
   }
 
   /// 统一的到期列表：后端已按到期时间升序，这里再兜一次并按有效期过滤

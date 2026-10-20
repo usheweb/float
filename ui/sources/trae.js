@@ -181,7 +181,7 @@
               <svg width="78" height="78" viewBox="0 0 78 78">
                 <circle class="ring-bg" cx="39" cy="39" r="${R}" fill="none" stroke-width="7" />
                 <circle class="ring-fg" cx="39" cy="39" r="${R}" fill="none" stroke-width="7"
-                  stroke="${color}" stroke-dasharray="${CIRC.toFixed(2)}"
+                  style="stroke:${color}" stroke-dasharray="${CIRC.toFixed(2)}"
                   stroke-dashoffset="${offset.toFixed(2)}" />
               </svg>
               <div class="ring-label">
