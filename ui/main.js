@@ -297,7 +297,10 @@ function measureFloatWidth() {
 /// nowrap + overflow:hidden，scrollWidth 仍是完整文本宽度，减去 clientWidth 就是缺口。
 /// 用来在窗口按量值收缩后做一次「真的没截断吗」的校验，把预估误差补掉。
 function floatClipOverflow() {
-  const nodes = el.floatCard?.querySelectorAll(".float-sub, .float-label > span:first-child");
+  // .float-remain 也要量：宽度不够时数值行里的「积分」会被挤到边界外
+  const nodes = el.floatCard?.querySelectorAll(
+    ".float-sub, .float-label > span:first-child, .float-remain"
+  );
   let max = 0;
   if (nodes) for (const n of nodes) max = Math.max(max, n.scrollWidth - n.clientWidth);
   return max;
@@ -335,13 +338,15 @@ function verifyFloatWidth(tries = 2) {
   });
 }
 
-/// 定住态下让窗口宽度贴合内容；只有宽度变化超过 6px 才真正改窗口，
+/// 定住态下让窗口宽度贴合内容；变宽立即生效，变窄要超过 6px 才收缩，
 /// 避免刷新时数字从 36,212.47 变成 9,999.99 就抖一下。
 async function fitFloatWidth(force = false) {
   if (!document.body.classList.contains("pinned")) return;
   const w = measureFloatWidth() + floatWidthBias;
   if (!w) return;
-  if (force || Math.abs(w - floatWidth) >= 6) {
+  // 变宽要立刻跟上：差几像素就会把「积分」挤成竖排、副标题顶成省略号；
+  // 只有变窄才留 6px 滞回，避免数字位数变化让窗口来回抖。
+  if (force || w > floatWidth || floatWidth - w >= 6) {
     floatWidth = w;
     try {
       await invoke("set_float_width", { width: w });

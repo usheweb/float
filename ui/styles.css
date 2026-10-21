@@ -747,6 +747,9 @@ body.pinned .float {
 .float-unit {
   font-size: 10px;
   color: var(--text-dim);
+  /* 窗口偶尔比内容窄几像素时，「积分」会被逐字折成竖排（积 / 分 两行），
+     宁可让它溢出被卡片裁掉，也不允许换行 */
+  white-space: nowrap;
 }
 
 .float-sub {
