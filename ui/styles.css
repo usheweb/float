@@ -1120,11 +1120,13 @@ body.pinned .float {
   overflow-y: auto;
 }
 
-/* 开关类设置行（目前是「开机自启动」）：整行不可点，右侧按钮才是操作入口 */
+/* 开关类设置行（「开机自启动」「外观主题」）：整行不可点，右侧按钮才是操作入口。
+   这两行是 #source-list 的兄弟节点，吃不到列表的 gap，所以自己补一份行间距。 */
 .setting-row {
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-top: 7px;
   padding: 10px 12px;
   border-radius: var(--r-md);
   border: 1px solid var(--line);
