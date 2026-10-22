@@ -130,26 +130,31 @@
         <!-- 视图一：数据源列表 -->
         <div id="settings-list-view">
           <p class="modal-desc" id="storage-desc"></p>
-          <div id="source-list" class="source-list"></div>
 
-          <!-- 开机自启动：状态以后端读到的系统真实配置为准，不跟随前端本地缓存 -->
-          <div class="setting-row" id="autostart-row">
-            <div class="setting-row-main">
-              <span class="setting-row-title">开机自启动</span>
-              <span class="setting-row-sub" id="autostart-sub">读取中…</span>
-            </div>
-            <button type="button" class="ghost-btn" id="autostart-toggle" disabled>
-              读取中…
-            </button>
-          </div>
+          <!-- 数据源列表 + 底部两个开关行共用同一个滚动容器，
+               否则窗口矮时它们会被裁掉、且不跟着滚动 -->
+          <div class="settings-scroll">
+            <div id="source-list" class="source-list"></div>
 
-          <!-- 外观主题：默认亮色，暗色为手动切换项，选择存本机 -->
-          <div class="setting-row" id="theme-row">
-            <div class="setting-row-main">
-              <span class="setting-row-title">外观主题</span>
-              <span class="setting-row-sub" id="theme-sub">亮色（默认）</span>
+            <!-- 开机自启动：状态以后端读到的系统真实配置为准，不跟随前端本地缓存 -->
+            <div class="setting-row" id="autostart-row">
+              <div class="setting-row-main">
+                <span class="setting-row-title">开机自启动</span>
+                <span class="setting-row-sub" id="autostart-sub">读取中…</span>
+              </div>
+              <button type="button" class="ghost-btn" id="autostart-toggle" disabled>
+                读取中…
+              </button>
             </div>
-            <button type="button" class="ghost-btn" id="theme-toggle">切换为暗色</button>
+
+            <!-- 外观主题：默认亮色，暗色为手动切换项，选择存本机 -->
+            <div class="setting-row" id="theme-row">
+              <div class="setting-row-main">
+                <span class="setting-row-title">外观主题</span>
+                <span class="setting-row-sub" id="theme-sub">亮色（默认）</span>
+              </div>
+              <button type="button" class="ghost-btn" id="theme-toggle">切换为暗色</button>
+            </div>
           </div>
         </div>
 

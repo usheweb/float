@@ -126,7 +126,10 @@ body {
   color: var(--text);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
+  /* 必须带 -webkit- 前缀：WKWebView 上只写无前缀版本不生效，
+     拖动窗口时会把整页文字刷成选中态 */
   user-select: none;
+  -webkit-user-select: none;
   /* 顶栏 / 场景 Tab / 内容区竖向排布，Tab 条出现或消失时内容区自动让位 */
   display: flex;
   flex-direction: column;
@@ -965,6 +968,13 @@ body.pinned .float {
   padding: 8px 10px;
 }
 
+/* 输入框必须能选中文字，覆盖掉 body 的 user-select: none */
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 .field input {
   width: 100%;
   min-width: 0;
@@ -1115,12 +1125,22 @@ body.pinned .float {
 
 /* ---------- 设置：数据源列表 + 平台表单 ---------- */
 
+/* 数据源列表与底部两个开关行共用一个滚动容器：
+   滚动必须包含开关行，否则窗口矮时它们被裁在可视区外、且滚不到 */
+.settings-scroll {
+  display: flex;
+  flex-direction: column;
+  max-height: 300px;
+  overflow-y: auto;
+  /* 给滚动条留出位置，避免压住卡片右侧描边 */
+  padding-right: 2px;
+  margin-right: -2px;
+}
+
 .source-list {
   display: flex;
   flex-direction: column;
   gap: 7px;
-  max-height: 300px;
-  overflow-y: auto;
 }
 
 /* 开关类设置行（「开机自启动」「外观主题」）：整行不可点，右侧按钮才是操作入口。
